@@ -5,7 +5,12 @@ from speckle_automate import (
     execute_automate_function,
 )
 
-from src.processors.commit_processory import CommitProcessor
+from src.processors.material import RevitMaterialProcessor
+from src.processors.compliance import RevitComplianceChecker
+from src.processors.model import RevitModelProcessor
+from src.validators.revit import RevitSourceValidator
+from src.aggregators.carbon_totals import MassAggregator
+from src.logging.compliance_logger import ComplianceLogger
 
 
 class FunctionInputs(AutomateBase):
@@ -24,38 +29,68 @@ def automate_function(
     automate_context: AutomationContext,
     function_inputs: FunctionInputs,
 ) -> None:
-    # TODO: Add method to automation_context for sourceApplication
-    version_id = automate_context.automation_run_data.triggers[0].payload.version_id
-    commit_root = automate_context.speckle_client.commit.get(
-        automate_context.automation_run_data.project_id, version_id
+    """Program entry point."""
+    try:
+        # Get version data
+        version_id = automate_context.automation_run_data.triggers[0].payload.version_id
+        commit_root = automate_context.speckle_client.commit.get(
+            automate_context.automation_run_data.project_id, version_id
+        )
+
+        # Validate source application
+        source_validator = RevitSourceValidator()  # Built for revit, therefore check
+        if not source_validator.validate(commit_root.sourceApplication):
+            automate_context.mark_run_failed(
+                f"Automation requires Revit v3 commits. Received: {commit_root.sourceApplication}"
+            )
+            return
+
+        # Create processor chain and get logger for results
+        processor, logger = create_processor_chain()
+
+        # Process model
+        model_root = automate_context.receive_version()  # TODO: Line 35 and 36!?
+        processor.process_elements(model_root)
+
+        # Report compliance issues
+        compliance_summary = logger.get_summary()
+        for missing_property, elements in compliance_summary.items():
+            automate_context.attach_warning_to_objects(
+                category="Missing Revit Material Property",
+                object_ids=elements,
+                message=(
+                    f"Missing {missing_property} on the object, preventing mass calculation. "
+                    f"Update Revit object to contain the necessary properties if element is critical."
+                ),
+            )
+
+        automate_context.mark_run_success("Processing completed successfully.")
+
+    except Exception as e:
+        automate_context.mark_run_failed(f"Processing failed: {str(e)}")
+        raise  # Re-raise for proper error tracking
+
+
+def create_processor_chain() -> tuple[RevitModelProcessor, ComplianceLogger]:
+    """Creates and configures the required components."""
+
+    # Core components
+    logger = ComplianceLogger()  # For tracking issues
+    mass_aggregator = MassAggregator()  # For collecting computed masses
+
+    # Create processors
+    material_processor = RevitMaterialProcessor(mass_aggregator)  # Material calcs
+    compliance_checker = RevitComplianceChecker(logger)  # Validation
+
+    # Create and return the main processor with logger
+    return (
+        RevitModelProcessor(
+            material_processor=material_processor,
+            compliance_checker=compliance_checker,
+            logger=logger,
+        ),
+        logger,
     )
-
-    # ℹ️ sourceApplication value for v2: AppName + Version => Revit2024, Revit2023 etc.
-    # ℹ️ sourceApplication value for v3: slug => revit
-    # ⚠️ We're just working with v3 data - adapt commit_processor for v2 data structure if you want
-    # ⚠️ Alternatively, write a model factory that injects the correct CommitProcessor()
-    if commit_root.sourceApplication != "revit":
-        automate_context.mark_run_failed(
-            f"Automation built for v3 Revit commits. These are commits with a "
-            f"case-sensitive sourceApplication == 'revit', not {commit_root.sourceApplication})"
-        )
-
-    # Process elements
-    model_root = automate_context.receive_version()  # TODO: This is a waste!
-    processor = CommitProcessor()
-    processor.process_elements(model_root)
-
-    compliance_summary = processor.logger.get_summary()
-    for missing_property, elements in compliance_summary.items():
-        automate_context.attach_warning_to_objects(
-            category="Missing Revit Material Property",
-            object_ids=elements,
-            message=f"Missing {missing_property} on the object, preventing mass calculation. "
-            f"Update Revit object to contain the necessary properties if element is critical. ",
-        )
-
-    # TODO: create_new_version_in_project
-    automate_context.mark_run_success("Under development.")
 
 
 if __name__ == "__main__":
