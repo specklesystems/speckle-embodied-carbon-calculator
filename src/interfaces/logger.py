@@ -1,5 +1,5 @@
 from abc import ABC, abstractmethod
-from typing import Dict
+from typing import Dict, List
 
 
 class Logger(ABC):
@@ -14,6 +14,16 @@ class Logger(ABC):
         pass
 
     @abstractmethod
-    def get_summary(self) -> Dict:
-        """Get summary of logged messages"""
+    def log_success(self, object_id: str, **kwargs) -> None:
+        """Log a success message"""
+        pass
+
+    @abstractmethod
+    def get_warnings_summary(self) -> Dict:
+        """Get summary of logged warning messages"""
+        pass
+
+    @abstractmethod
+    def get_successful_summary(self) -> List:
+        """Get list of successfully processed elements"""
         pass

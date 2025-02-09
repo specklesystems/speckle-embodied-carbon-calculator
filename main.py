@@ -53,16 +53,29 @@ def automate_function(
         processor.process_elements(model_root)
 
         # Report compliance issues
-        compliance_summary = logger.get_summary()
-        for missing_property, elements in compliance_summary.items():
-            automate_context.attach_warning_to_objects(
-                category="Missing Revit Material Property",
-                object_ids=elements,
-                message=(
-                    f"Missing {missing_property} on the object, preventing mass calculation. "
-                    f"Update Revit object to contain the necessary properties if element is critical."
-                ),
+        logger_warnings = logger.get_warnings_summary()
+        if logger_warnings:
+            for missing_property, elements in logger_warnings.items():
+                automate_context.attach_warning_to_objects(
+                    category="Missing Required Revit Properties",
+                    object_ids=elements,
+                    message=(
+                        f"Property '{missing_property}' is missing, which prevents carbon "
+                        f"calculations. If this element is critical to your analysis, please "
+                        f"update its Revit properties."
+                    ),
+                )
+
+        logger_successes = logger.get_successful_summary()
+        if logger_successes:
+            automate_context.attach_success_to_objects(
+                category="Successfully Processed",
+                object_ids=logger_successes,
+                message="Carbon calculations completed successfully for this element.",
             )
+
+        # TODO: Create new version
+        # automate_context.create_new_version_in_project(model_root, "dev", "")
 
         automate_context.mark_run_success("Processing completed successfully.")
 

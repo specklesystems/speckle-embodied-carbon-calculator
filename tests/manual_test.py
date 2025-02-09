@@ -1,3 +1,5 @@
+# pytest: skip-file
+
 from src.processors.material import RevitMaterialProcessor
 from src.processors.compliance import RevitComplianceChecker
 from src.processors.model import RevitModelProcessor
@@ -73,7 +75,7 @@ try:
     processor.process_elements(model_root)
 
     # Report compliance issues
-    compliance_summary = logger.get_summary()
+    compliance_summary = logger.get_warnings_summary()
 
     print("Processing completed successfully.")
 

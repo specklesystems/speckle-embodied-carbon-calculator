@@ -8,6 +8,7 @@ from src.interfaces.logger import Logger  # Import the interface
 class ComplianceLogger(Logger):  # Explicitly implement Logger interface
     def __init__(self):
         self.missing_properties: DefaultDict[str, set] = defaultdict(set)
+        self.successful_elements: set = set()
         self._structlog = structlog.get_logger()
 
     def log_error(self, message: str, **kwargs) -> None:
@@ -32,8 +33,17 @@ class ComplianceLogger(Logger):  # Explicitly implement Logger interface
         if object_id and missing_property:
             self.missing_properties[missing_property].add(object_id)
 
-    def get_summary(self) -> Dict[str, list]:
+    def log_success(self, object_id: str) -> None:
+        """Log a successful element processing"""
+        self._structlog.info(f"Successfully processed element", object_id=object_id)
+        self.successful_elements.add(object_id)
+
+    def get_warnings_summary(self) -> Dict[str, list]:
         """Get summary of logged messages"""
         return {
             prop: list(elements) for prop, elements in self.missing_properties.items()
         }
+
+    def get_successful_summary(self) -> list:
+        """Get list of successfully processed elements"""
+        return list(self.successful_elements)

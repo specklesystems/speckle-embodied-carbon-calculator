@@ -4,10 +4,12 @@ from src.interfaces.material_processor import MaterialProcessor
 from src.interfaces.compliance_checker import ComplianceChecker
 from src.interfaces.logger import Logger
 from src.utils.constants import (
+    APPLICATION_ID,
     ELEMENTS,
     NAME,
     PROPERTIES,
     MATERIAL_QUANTITIES,
+    SPECKLE_TYPE,
     ID,
     VOLUME,
     STRUCTURAL_ASSET,
@@ -51,68 +53,70 @@ class RevitModelProcessor(ModelProcessor):
 
     def _process_type_group(self, type_group: Any, level_name: str) -> None:
         """Process a group of elements of the same type"""
-        revit_objects = getattr(type_group, ELEMENTS, None)
-        if not revit_objects:
+        groups = getattr(type_group, ELEMENTS, None)
+        if not groups:
             type_name = getattr(type_group, NAME, "Unknown")
             raise ValueError(f"Invalid type structure: missing elements in {type_name}")
 
         type_name = getattr(type_group, NAME)
-        for revit_object in revit_objects:
-            self.process_element(level_name, type_name, revit_object)
+
+        for group in groups:
+            revit_objects = getattr(group, ELEMENTS, None)
+            if not revit_objects:
+                raise ValueError(
+                    f"Invalid type structure: missing elements in "
+                    f"{getattr(group, NAME, None)}"
+                )
+            for revit_object in revit_objects:
+                self.process_element(level_name, type_name, revit_object)
 
     def process_element(self, level: str, type_name: str, revit_object: Any) -> None:
         """Process a single element following original logic exactly"""
+
+        # TODO: We can probably straight up skip Line and Arc. Logging it as a warning is dumb
+
         element_id = getattr(revit_object, ID, None)
         if not element_id:
             return
 
-        # First check elements
-        elements = getattr(revit_object, ELEMENTS, None)
-        if not elements:
+        # Check Material Quantities
+        properties = getattr(revit_object, PROPERTIES, None)
+        if not properties:
             self._logger.log_warning(
-                f"Missing elements", object_id=element_id, missing_property=ELEMENTS
+                f"Missing Material Quantities",
+                object_id=element_id,
+                missing_property=PROPERTIES,
+            )
+            return
+        material_quantities = properties.get(MATERIAL_QUANTITIES, None)
+        if not material_quantities:
+            self._logger.log_warning(
+                f"Missing Material Quantities",
+                object_id=element_id,
+                missing_property=MATERIAL_QUANTITIES,
             )
             return
 
-        # Process each element
-        for element in elements:
-            # Check properties
-            properties = getattr(element, PROPERTIES, None)
-            if not properties:
-                self._logger.log_warning(
-                    f"Missing properties",
-                    object_id=element_id,
-                    missing_property=PROPERTIES,
-                )
-                return
-
-            # Check Material Quantities
-            material_quantities = properties.get(MATERIAL_QUANTITIES, None)
-            if not material_quantities:
-                self._logger.log_warning(
-                    f"Missing Material Quantities",
-                    object_id=element_id,
-                    missing_property=MATERIAL_QUANTITIES,
-                )
-                return
-
-            # Process each material
-            for material_name, material_data in material_quantities.items():
-                # Check required material properties
-                for required_prop in [VOLUME, STRUCTURAL_ASSET, DENSITY]:
-                    if required_prop not in material_data:
-                        self._logger.log_warning(
-                            f"Missing {required_prop}",
-                            object_id=element_id,
-                            missing_property=required_prop,
-                        )
-                        return
-
-                try:
-                    self._material_processor.process_material(
-                        material_data, level, type_name
+        # Process each material
+        # TODO: Project 2427 is an interesting one with compound materials
+        # TODO: Checkout object fefcc95c2f0ecd28a49ecdd7764e2d79. Worth skipping if volume = 0?
+        for material_name, material_data in material_quantities.items():
+            # Check required material properties
+            for required_prop in [VOLUME, STRUCTURAL_ASSET, DENSITY]:
+                if required_prop not in material_data:
+                    self._logger.log_warning(
+                        f"Missing {required_prop}",
+                        object_id=element_id,
+                        missing_property=required_prop,
                     )
-                except Exception as e:
-                    self._logger.log_error(
-                        f"Failed to process element {element_id}", error=str(e)
-                    )
+                    return
+
+            try:
+                self._material_processor.process_material(
+                    material_data, level, type_name
+                )
+                self._logger.log_success(element_id)
+            except Exception as e:
+                self._logger.log_error(
+                    f"Failed to process element {element_id}", error=str(e)
+                )
