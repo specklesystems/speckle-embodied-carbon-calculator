@@ -4,7 +4,9 @@ from src.interfaces.material_processor import MaterialProcessor
 from src.interfaces.compliance_checker import ComplianceChecker
 from src.interfaces.logger import Logger
 from src.utils.constants import (
-    APPLICATION_ID,
+    LINE,
+    ARC,
+    CIRCLE,
     ELEMENTS,
     NAME,
     PROPERTIES,
@@ -73,7 +75,10 @@ class RevitModelProcessor(ModelProcessor):
     def process_element(self, level: str, type_name: str, revit_object: Any) -> None:
         """Process a single element following original logic exactly"""
 
-        # TODO: We can probably straight up skip Line and Arc. Logging it as a warning is dumb
+        # We can probably straight up skip Line and Arc. Logging it as a warning is dumb
+        speckle_type = getattr(revit_object, SPECKLE_TYPE, None)
+        if speckle_type in [LINE, ARC, CIRCLE]:
+            return  # TODO: Possibly add to logger for info? Not a warning though.
 
         element_id = getattr(revit_object, ID, None)
         if not element_id:

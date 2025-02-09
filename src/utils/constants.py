@@ -2,9 +2,12 @@ REQUIRED_PROPERTIES = ["volume", "density", "structuralAsset"]
 
 # Keys
 APPLICATION_ID = "applicationId"
+ARC = "Objects.Geometry.Arc"
+CIRCLE = "Objects.Geometry.Circle"
 DENSITY = "density"
 ELEMENTS = "elements"
 ID = "id"
+LINE = "Objects.Geometry.Line"
 MASS = "mass"
 MATERIAL_QUANTITIES = "Material Quantities"
 NAME = "name"

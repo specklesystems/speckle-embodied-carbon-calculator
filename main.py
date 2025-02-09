@@ -52,7 +52,16 @@ def automate_function(
         model_root = automate_context.receive_version()  # TODO: Line 35 and 36!?
         processor.process_elements(model_root)
 
-        # Report compliance issues
+        # Logger information - successes
+        logger_successes = logger.get_successful_summary()
+        if logger_successes:
+            automate_context.attach_success_to_objects(
+                category="Successfully Processed",
+                object_ids=logger_successes,
+                message="Carbon calculations completed successfully for this element.",
+            )
+
+        # Logger information - warnings
         logger_warnings = logger.get_warnings_summary()
         if logger_warnings:
             for missing_property, elements in logger_warnings.items():
@@ -65,14 +74,6 @@ def automate_function(
                         f"update its Revit properties."
                     ),
                 )
-
-        logger_successes = logger.get_successful_summary()
-        if logger_successes:
-            automate_context.attach_success_to_objects(
-                category="Successfully Processed",
-                object_ids=logger_successes,
-                message="Carbon calculations completed successfully for this element.",
-            )
 
         # TODO: Create new version
         # automate_context.create_new_version_in_project(model_root, "dev", "")
