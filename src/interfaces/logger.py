@@ -1,10 +1,11 @@
 from abc import ABC, abstractmethod
 from typing import Dict, List
 
+
 # TODO: Implementations use **kwargs which is silly. Formalize.
 class Logger(ABC):
-    """Interface for logging.
-    """
+    """Interface for logging."""
+
     @abstractmethod
     def log_error(self, message: str, **kwargs) -> None:
         """Log an error.
@@ -34,7 +35,7 @@ class Logger(ABC):
 
     @abstractmethod
     def get_warnings_summary(self) -> Dict:
-        """Returns a dictionary of warning messages. The dictionary groups the wanring types.
+        """Returns a dictionary of warning messages. The dictionary groups the warning types.
 
         Returns:
             Dict: {warning_type : [object_ids], ...}

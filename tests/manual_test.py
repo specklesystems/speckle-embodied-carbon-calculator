@@ -22,7 +22,7 @@ BRANCH_NAME = "2391"
 client = SpeckleClient(host=HOST)
 client.authenticate_with_token(token=AUTHENTICATION_TOKEN)
 
-# Receving commit
+# Receiving commit
 transport = ServerTransport(STREAM_ID, client)
 branch = client.branch.get(stream_id=STREAM_ID, name=BRANCH_NAME)
 model_data = operations.receive(branch.commits.items[0].referencedObject, transport)
