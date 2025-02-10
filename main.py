@@ -12,9 +12,10 @@ from src.validators.revit import RevitSourceValidator
 from src.aggregators.carbon_totals import MassAggregator
 from src.logging.compliance_logger import ComplianceLogger
 
-
+# TODO: Function inputs
 class FunctionInputs(AutomateBase):
-    # An example of how to use secret values.
+    """User-defined function inputs.
+    """
     whisper_message: SecretStr = Field(title="This is a secret message")
     forbidden_speckle_type: str = Field(
         title="Forbidden speckle type",

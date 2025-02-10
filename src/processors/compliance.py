@@ -3,8 +3,11 @@ from src.interfaces.compliance_checker import ComplianceChecker
 from src.interfaces.logger import Logger
 from src.utils.constants import ID
 
+# NOTE: Only provide docstring if not covered by base class
 
 class RevitComplianceChecker(ComplianceChecker):
+    """Implementation of the ComplianceChecker in the context of Revit.
+    """
     def __init__(self, logger: Logger):
         self._logger = logger
 

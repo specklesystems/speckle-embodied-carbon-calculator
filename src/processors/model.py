@@ -18,8 +18,12 @@ from src.utils.constants import (
     DENSITY,
 )
 
+# NOTE: Only provide docstring if not covered by base class
+
 
 class RevitModelProcessor(ModelProcessor):
+    """Implementation of the ModelProcessor in the Revit context.
+    """
     def __init__(
         self,
         material_processor: MaterialProcessor,
@@ -32,7 +36,14 @@ class RevitModelProcessor(ModelProcessor):
 
     def process_elements(self, model: Any) -> None:
         """Process all elements in the model hierarchically.
-        Model → Levels → Type Groups → Elements"""
+        Model → Levels → Type Groups → Elements.
+
+        Args:
+            model (Any): commit root
+
+        Raises:
+            ValueError: root["elements"] must exist
+        """
         levels = getattr(model, ELEMENTS, None)
         if not levels:
             raise ValueError("Invalid model: missing elements at root.")
@@ -41,7 +52,14 @@ class RevitModelProcessor(ModelProcessor):
             self._process_level(level)
 
     def _process_level(self, level: Any) -> None:
-        """Process a single level in the model"""
+        """Process all groups contained on a level.
+
+        Args:
+            level (Any): root["elements"][i] → level collection
+
+        Raises:
+            ValueError: root["elements"][i]["elements"] must exist
+        """
         type_groups = getattr(level, ELEMENTS, None)
         if not type_groups:
             level_name = getattr(level, NAME, "Unknown")
@@ -54,7 +72,16 @@ class RevitModelProcessor(ModelProcessor):
             self._process_type_group(type_group, level_name)
 
     def _process_type_group(self, type_group: Any, level_name: str) -> None:
-        """Process a group of elements of the same type"""
+        """Process a group of elements of the same type
+
+        Args:
+            type_group (Any): group to process
+            level_name (str): associated level of the groups
+
+        Raises:
+            ValueError: root["elements"][i]["elements"][i]["elements"] must exist
+            ValueError: root["elements"][i]["elements"][i]["elements"][i]["elements"] must exist
+        """
         groups = getattr(type_group, ELEMENTS, None)
         if not groups:
             type_name = getattr(type_group, NAME, "Unknown")
@@ -72,23 +99,30 @@ class RevitModelProcessor(ModelProcessor):
             for revit_object in revit_objects:
                 self.process_element(level_name, type_name, revit_object)
 
-    def process_element(self, level: str, type_name: str, revit_object: Any) -> None:
-        """Process a single element following original logic exactly"""
+    def process_element(self, level: str, type_name: str, model_object: Any) -> None:
+        """Processing of actual model object after successful traversal of the commit.
+
+        Args:
+            level (str): associated level of the object
+            type_name (str): family / type of the object
+            revit_object (Any): speckle object
+        """
 
         # We can probably straight up skip Line and Arc. Logging it as a warning is dumb
-        speckle_type = getattr(revit_object, SPECKLE_TYPE, None)
+        # TODO: Possibly add to logger for info? Not a warning though.
+        speckle_type = getattr(model_object, SPECKLE_TYPE, None)
         if speckle_type in [LINE, ARC, CIRCLE]:
-            return  # TODO: Possibly add to logger for info? Not a warning though.
+            return
 
-        element_id = getattr(revit_object, ID, None)
+        element_id = getattr(model_object, ID, None)
         if not element_id:
             return
 
         # Check Material Quantities
-        properties = getattr(revit_object, PROPERTIES, None)
+        properties = getattr(model_object, PROPERTIES, None)
         if not properties:
             self._logger.log_warning(
-                f"Missing Material Quantities",
+                "Missing Material Quantities",
                 object_id=element_id,
                 missing_property=PROPERTIES,
             )
@@ -96,7 +130,7 @@ class RevitModelProcessor(ModelProcessor):
         material_quantities = properties.get(MATERIAL_QUANTITIES, None)
         if not material_quantities:
             self._logger.log_warning(
-                f"Missing Material Quantities",
+                "Missing Material Quantities",
                 object_id=element_id,
                 missing_property=MATERIAL_QUANTITIES,
             )

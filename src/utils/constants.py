@@ -1,3 +1,5 @@
+# TODO: Implementation specific constants.
+
 REQUIRED_PROPERTIES = ["volume", "density", "structuralAsset"]
 
 # Keys
