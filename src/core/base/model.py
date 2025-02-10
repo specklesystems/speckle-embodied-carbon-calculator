@@ -2,9 +2,9 @@ from abc import ABC, abstractmethod
 from typing import Any
 
 
-class ModelProcessor(ABC):
-    """Interface for model processing.
-    """
+class Model(ABC):
+    """Interface for model processing."""
+
     @abstractmethod
     def process_elements(self, model: Any) -> None:
         """Process all elements in the model.

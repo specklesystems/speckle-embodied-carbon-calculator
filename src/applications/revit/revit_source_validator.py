@@ -1,4 +1,4 @@
-from src.interfaces.validator import SourceApplicationValidator
+from src.core.base.source_validator import SourceApplicationValidator
 
 
 class RevitSourceValidator(SourceApplicationValidator):

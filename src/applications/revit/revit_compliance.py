@@ -1,8 +1,7 @@
-from typing import Any, List, Optional
-from dataclasses import dataclass
+from typing import Any, List
 
-from src.interfaces import ComplianceChecker, Logger
-from src.utils.constants import (
+from src.core.base import Compliance, Logger
+from src.applications.revit.utils.constants import (
     ID,
     SPECKLE_TYPE,
     LINE,
@@ -16,7 +15,7 @@ from src.utils.constants import (
 )
 
 
-class RevitComplianceChecker(ComplianceChecker):
+class RevitCompliance(Compliance):
     """Implementation of the ComplianceChecker in the context of Revit.
     Checks if elements contain required properties for carbon calculations.
     """
@@ -26,7 +25,7 @@ class RevitComplianceChecker(ComplianceChecker):
 
     def check_compliance(
         self, element: Any, required_properties: List[str]
-    ) -> ComplianceChecker.ValidationResult:
+    ) -> Compliance.ValidationResult:
         """
         Validates element and returns validation result with material data if valid.
 
@@ -48,7 +47,7 @@ class RevitComplianceChecker(ComplianceChecker):
 
         return validation
 
-    def _validate_element(self, element: Any) -> ComplianceChecker.ValidationResult:
+    def _validate_element(self, element: Any) -> Compliance.ValidationResult:
         """Internal validation logic for a single element.
 
         Args:

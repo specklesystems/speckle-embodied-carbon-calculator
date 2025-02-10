@@ -4,20 +4,22 @@ from collections import defaultdict
 
 # TODO: Replace with carbon aggregator when ready
 class MassAggregator:
-    """Cumulative sum of the computed masses. Grouped by level and type.
-    """
+    """Cumulative sum of the computed masses. Grouped by level and type."""
+
     def __init__(self):
         self.totals = defaultdict(lambda: defaultdict(lambda: defaultdict(float)))
 
     # TODO: Check! Changes for Revit model groups probably broke this
-    def add_mass(self, mass: float, level: str, collection_type: str, material: str) -> None:
+    def add_mass(
+        self, mass: float, level: str, collection_type: str, material: str
+    ) -> None:
         """Adds computed mass of a single object to the totals.
         Ignores computed masses < 1e-6.
 
         Args:
             mass (float): computed mass
             level (str): string of the associated level of the object
-            type (str): object collection (e.g. "Columns", "Structural Foundations")
+            collection_type (str): object collection (e.g. "Columns", "Structural Foundations")
             material (str): name of the structural asset
         """
         if mass <= 1e-6:

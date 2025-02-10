@@ -2,13 +2,14 @@ import structlog
 from typing import Dict, DefaultDict
 from collections import defaultdict
 
-from src.interfaces.logger import Logger  # Import the interface
+from src.core.base.logger import Logger  # Import the interface
 
 # NOTE: Only provide docstring if not covered by base class
 
-class ComplianceLogger(Logger):
-    """Implements Logger interface
-    """
+
+class RevitLogger(Logger):
+    """Implements Logger interface"""
+
     def __init__(self):
         self.missing_properties: DefaultDict[str, set] = defaultdict(set)
         self.successful_elements: set = set()
@@ -18,7 +19,7 @@ class ComplianceLogger(Logger):
         self._structlog.error(message, **kwargs)
 
     def log_warning(self, message: str, **kwargs) -> None:
-        """ Log a warning message.
+        """Log a warning message.
         Categorises and caches missing properties if 'missing_property' and 'object_id' specified in the kwargs.
 
         Args:
@@ -34,7 +35,7 @@ class ComplianceLogger(Logger):
         if object_id and missing_property:
             self.missing_properties[missing_property].add(object_id)
 
-    def log_success(self, object_id: str) -> None:
+    def log_success(self, object_id: str, **kwargs) -> None:
         self._structlog.info(f"Successfully processed element", object_id=object_id)
         self.successful_elements.add(object_id)
 

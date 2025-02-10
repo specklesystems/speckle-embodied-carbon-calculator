@@ -2,9 +2,9 @@ from abc import ABC, abstractmethod
 from typing import Dict, Any
 
 
-class MaterialProcessor(ABC):
-    """Interface for processing a material.
-    """
+class Material(ABC):
+    """Interface for processing a material."""
+
     @abstractmethod
     def process_material(
         self, material_data: Dict[str, Any], level: str, type_name: str

@@ -1,9 +1,9 @@
 from typing import Any
-from src.interfaces.model_processor import ModelProcessor
-from src.interfaces.material_processor import MaterialProcessor
-from src.interfaces.compliance_checker import ComplianceChecker
-from src.interfaces.logger import Logger
-from src.utils.constants import (
+from src.core.base import Model
+from src.core.base import Material
+from src.core.base import Compliance
+from src.core.base.logger import Logger
+from src.applications.revit.utils.constants import (
     ELEMENTS,
     NAME,
     ID,
@@ -12,13 +12,13 @@ from src.utils.constants import (
 # NOTE: Only provide docstring if not covered by base class
 
 
-class RevitModelProcessor(ModelProcessor):
+class RevitModel(Model):
     """Implementation of the ModelProcessor in the Revit context."""
 
     def __init__(
         self,
-        material_processor: MaterialProcessor,
-        compliance_checker: ComplianceChecker,
+        material_processor: Material,
+        compliance_checker: Compliance,
         logger: Logger,
     ):
         self._material_processor = material_processor

@@ -1,4 +1,4 @@
-# TODO: Implementation specific constants.
+# TODO: Check that the constants only get used in the applications/revit/ level
 
 REQUIRED_PROPERTIES = ["volume", "density", "structuralAsset"]
 
