@@ -1,15 +1,21 @@
 from typing import Dict, Any
-from src.interfaces.material_processor import MaterialProcessor
-from src.models.material import (
+from src.core.base import Material
+from src.core.types.material import (
     MaterialData,
 )
-from src.utils.constants import VOLUME, VALUE, DENSITY, STRUCTURAL_ASSET
+from src.applications.revit.utils.constants import (
+    VOLUME,
+    VALUE,
+    DENSITY,
+    STRUCTURAL_ASSET,
+)
 
 # NOTE: Only provide docstring if not covered by base class
 
-class RevitMaterialProcessor(MaterialProcessor):
-    """Implementation of the MaterialProcessor for the Revit context.
-    """
+
+class RevitMaterial(Material):
+    """Implementation of the MaterialProcessor for the Revit context."""
+
     def __init__(self, mass_aggregator: "MassAggregator"):
         self._mass_aggregator = mass_aggregator
 

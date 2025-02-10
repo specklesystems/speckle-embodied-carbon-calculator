@@ -5,17 +5,19 @@ from speckle_automate import (
     execute_automate_function,
 )
 
-from src.processors.material import RevitMaterialProcessor
-from src.processors.compliance import RevitComplianceChecker
-from src.processors.model import RevitModelProcessor
-from src.validators.revit import RevitSourceValidator
-from src.aggregators.carbon_totals import MassAggregator
-from src.logging.compliance_logger import ComplianceLogger
+from src.applications.revit.revit_material import RevitMaterial
+from src.applications.revit.revit_compliance import RevitCompliance
+from src.applications.revit.revit_model import RevitModel
+from src.applications.revit.revit_source_validator import RevitSourceValidator
+from src.carbon.aggregator import MassAggregator
+from src.applications.revit.revit_logger import RevitLogger
+from src.core.base import Model, Logger
+
 
 # TODO: Function inputs
 class FunctionInputs(AutomateBase):
-    """User-defined function inputs.
-    """
+    """User-defined function inputs."""
+
     whisper_message: SecretStr = Field(title="This is a secret message")
     forbidden_speckle_type: str = Field(
         title="Forbidden speckle type",
@@ -47,14 +49,14 @@ def automate_function(
             return
 
         # Create processor chain and get logger for results
-        processor, logger = create_processor_chain()
+        processor = configure_components()
 
         # Process model
         model_root = automate_context.receive_version()  # TODO: Line 35 and 36!?
         processor.process_elements(model_root)
 
         # Logger information - successes
-        logger_successes = logger.get_successful_summary()
+        logger_successes, logger_warnings = processor.get_processing_results()
         if logger_successes:
             automate_context.attach_success_to_objects(
                 category="Successfully Processed",
@@ -63,7 +65,6 @@ def automate_function(
             )
 
         # Logger information - warnings
-        logger_warnings = logger.get_warnings_summary()
         if logger_warnings:
             for missing_property, elements in logger_warnings.items():
                 automate_context.attach_warning_to_objects(
@@ -86,25 +87,33 @@ def automate_function(
         raise  # Re-raise for proper error tracking
 
 
-def create_processor_chain() -> tuple[RevitModelProcessor, ComplianceLogger]:
-    """Creates and configures the required components."""
+# TODO instead of hard-coding revit, demo a factory method to inject implementations based on
+#  function input
+def configure_components() -> Model:
+    """Configures and wires up processor components with dependencies.
+
+    Creates core system components (logger, aggregator) and configures processors
+    with required dependencies injected.
+
+    Returns:
+        tuple:
+            - Model: Main processor configured with dependencies
+    """
 
     # Core components
-    logger = ComplianceLogger()  # For tracking issues
+    logger = RevitLogger()  # For tracking issues
     mass_aggregator = MassAggregator()  # For collecting computed masses
+    # TODO: results_aggregator = ResultAggregator and get rid of mass_aggregator
 
     # Create processors
-    material_processor = RevitMaterialProcessor(mass_aggregator)  # Material calcs
-    compliance_checker = RevitComplianceChecker(logger)  # Validation
+    material_processor = RevitMaterial(mass_aggregator)  # Material handler to "inject"
+    compliance_checker = RevitCompliance(logger)  # Compliance checker to "inject"
 
-    # Create and return the main processor with logger
-    return (
-        RevitModelProcessor(
-            material_processor=material_processor,
-            compliance_checker=compliance_checker,
-            logger=logger,
-        ),
-        logger,
+    # Create and return the main processor with dependencies "injected"
+    return RevitModel(
+        material_processor=material_processor,
+        compliance_checker=compliance_checker,
+        logger=logger,
     )
 
 

@@ -4,7 +4,7 @@ from dataclasses import dataclass
 from typing import Optional
 
 
-class ComplianceChecker(ABC):
+class Compliance(ABC):
     """Interface for compliance checks.
     Compliance are intended to be called for every object where an attribute is assumed.
     """

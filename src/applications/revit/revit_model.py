@@ -1,9 +1,9 @@
 from typing import Any
-from src.interfaces.model_processor import ModelProcessor
-from src.interfaces.material_processor import MaterialProcessor
-from src.interfaces.compliance_checker import ComplianceChecker
-from src.interfaces.logger import Logger
-from src.utils.constants import (
+from src.core.base import Model
+from src.core.base import Material
+from src.core.base import Compliance
+from src.core.base.logger import Logger
+from src.applications.revit.utils.constants import (
     ELEMENTS,
     NAME,
     ID,
@@ -12,13 +12,13 @@ from src.utils.constants import (
 # NOTE: Only provide docstring if not covered by base class
 
 
-class RevitModelProcessor(ModelProcessor):
+class RevitModel(Model):
     """Implementation of the ModelProcessor in the Revit context."""
 
     def __init__(
         self,
-        material_processor: MaterialProcessor,
-        compliance_checker: ComplianceChecker,
+        material_processor: Material,
+        compliance_checker: Compliance,
         logger: Logger,
     ):
         self._material_processor = material_processor
@@ -28,6 +28,18 @@ class RevitModelProcessor(ModelProcessor):
     def process_elements(self, model: Any) -> None:
         """Model traversal.
         Model → Levels → Type Groups → Elements.
+
+        Performance Notes:
+            - Threading? Could be cool, but:
+                - Profile code first. Do we need it?
+                - Not really I/O bound. Our traversal is just walking through an in-memory object structure
+                - TBH I'm scared of the hierarchy
+                - Thread safety? Shared loggers and aggregators.
+            - Flattening nested iterations?
+                - Code less readable (e.g. chain.from_iterable(..))
+                - Obscures hierarchical nature of data
+                - Performance benefit(s) minimal?
+                - Harder to debug
         """
         levels = self._get_elements(model, "model")
 
@@ -75,6 +87,13 @@ class RevitModelProcessor(ModelProcessor):
             self._logger.log_error(
                 f"Failed to process element {getattr(model_object, ID)}", error=str(e)
             )
+
+    # TODO: This is gross.
+    def get_processing_results(self) -> tuple[list, dict]:
+        return (
+            self._logger.get_successful_summary(),
+            self._logger.get_warnings_summary(),
+        )
 
     @staticmethod
     def _get_elements(node: Any, context: str) -> list:

@@ -1,11 +1,11 @@
 # pytest: skip-file
 
-from src.processors.material import RevitMaterialProcessor
-from src.processors.compliance import RevitComplianceChecker
-from src.processors.model import RevitModelProcessor
-from src.validators.revit import RevitSourceValidator
-from src.aggregators.carbon_totals import MassAggregator
-from src.logging.compliance_logger import ComplianceLogger
+from src.applications.revit.revit_material import RevitMaterial
+from src.applications.revit.revit_compliance import RevitCompliance
+from src.applications.revit.revit_model import RevitModel
+from src.applications.revit.revit_source_validator import RevitSourceValidator
+from src.carbon.aggregator import MassAggregator
+from src.applications.revit.revit_logger import RevitLogger
 
 # Import required libraries
 from specklepy.api.client import SpeckleClient
@@ -28,26 +28,26 @@ branch = client.branch.get(stream_id=STREAM_ID, name=BRANCH_NAME)
 model_data = operations.receive(branch.commits.items[0].referencedObject, transport)
 
 
-def create_processor_chain() -> tuple[RevitModelProcessor, ComplianceLogger]:
+def create_processor_chain() -> tuple[RevitModel, RevitLogger]:
     """
     Creates and configures the processing chain with all necessary dependencies.
 
     Returns:
-        tuple[RevitModelProcessor, ComplianceLogger]:
-            - Configured processor ready to handle Revit models
+        tuple[RevitModel, RevitLogger]:
+            - Configured processor ready to handle Revit types
             - Logger instance for accessing compliance results
     """
     # Create core components
-    logger = ComplianceLogger()
+    logger = RevitLogger()
     mass_aggregator = MassAggregator()
 
     # Create processors
-    material_processor = RevitMaterialProcessor(mass_aggregator)
-    compliance_checker = RevitComplianceChecker(logger)
+    material_processor = RevitMaterial(mass_aggregator)
+    compliance_checker = RevitCompliance(logger)
 
     # Create and return the main processor with logger
     return (
-        RevitModelProcessor(
+        RevitModel(
             material_processor=material_processor,
             compliance_checker=compliance_checker,
             logger=logger,
