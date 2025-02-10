@@ -25,3 +25,9 @@ class Model(ABC):
             model_object (Any): speckle object
         """
         pass
+
+    # TODO: This is gross
+    @abstractmethod
+    def get_processing_results(self) -> tuple[list, dict]:
+        """Expose logging results."""
+        pass

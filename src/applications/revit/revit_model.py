@@ -88,6 +88,13 @@ class RevitModel(Model):
                 f"Failed to process element {getattr(model_object, ID)}", error=str(e)
             )
 
+    # TODO: This is gross.
+    def get_processing_results(self) -> tuple[list, dict]:
+        return (
+            self._logger.get_successful_summary(),
+            self._logger.get_warnings_summary(),
+        )
+
     @staticmethod
     def _get_elements(node: Any, context: str) -> list:
         """Get elements from a node, with consistent error handling.

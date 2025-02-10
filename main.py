@@ -11,6 +11,7 @@ from src.applications.revit.revit_model import RevitModel
 from src.applications.revit.revit_source_validator import RevitSourceValidator
 from src.carbon.aggregator import MassAggregator
 from src.applications.revit.revit_logger import RevitLogger
+from src.core.base import Model, Logger
 
 
 # TODO: Function inputs
@@ -48,14 +49,14 @@ def automate_function(
             return
 
         # Create processor chain and get logger for results
-        processor, logger = create_processor_chain()
+        processor = configure_components()
 
         # Process model
         model_root = automate_context.receive_version()  # TODO: Line 35 and 36!?
         processor.process_elements(model_root)
 
         # Logger information - successes
-        logger_successes = logger.get_successful_summary()
+        logger_successes, logger_warnings = processor.get_processing_results()
         if logger_successes:
             automate_context.attach_success_to_objects(
                 category="Successfully Processed",
@@ -64,7 +65,6 @@ def automate_function(
             )
 
         # Logger information - warnings
-        logger_warnings = logger.get_warnings_summary()
         if logger_warnings:
             for missing_property, elements in logger_warnings.items():
                 automate_context.attach_warning_to_objects(
@@ -89,25 +89,31 @@ def automate_function(
 
 # TODO instead of hard-coding revit, demo a factory method to inject implementations based on
 #  function input
-def create_processor_chain() -> tuple[RevitModel, RevitLogger]:
-    """Creates and configures the required components."""
+def configure_components() -> Model:
+    """Configures and wires up processor components with dependencies.
+
+    Creates core system components (logger, aggregator) and configures processors
+    with required dependencies injected.
+
+    Returns:
+        tuple:
+            - Model: Main processor configured with dependencies
+    """
 
     # Core components
     logger = RevitLogger()  # For tracking issues
     mass_aggregator = MassAggregator()  # For collecting computed masses
+    # TODO: results_aggregator = ResultAggregator and get rid of mass_aggregator
 
     # Create processors
-    material_processor = RevitMaterial(mass_aggregator)  # Material calcs
-    compliance_checker = RevitCompliance(logger)  # Validation
+    material_processor = RevitMaterial(mass_aggregator)  # Material handler to "inject"
+    compliance_checker = RevitCompliance(logger)  # Compliance checker to "inject"
 
-    # Create and return the main processor with logger
-    return (
-        RevitModel(
-            material_processor=material_processor,
-            compliance_checker=compliance_checker,
-            logger=logger,
-        ),
-        logger,
+    # Create and return the main processor with dependencies "injected"
+    return RevitModel(
+        material_processor=material_processor,
+        compliance_checker=compliance_checker,
+        logger=logger,
     )
 
 
