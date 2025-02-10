@@ -87,6 +87,8 @@ def automate_function(
         raise  # Re-raise for proper error tracking
 
 
+# TODO instead of hard-coding revit, demo a factory method to inject implementations based on
+#  function input
 def create_processor_chain() -> tuple[RevitModel, RevitLogger]:
     """Creates and configures the required components."""
 

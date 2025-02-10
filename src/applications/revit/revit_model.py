@@ -28,6 +28,18 @@ class RevitModel(Model):
     def process_elements(self, model: Any) -> None:
         """Model traversal.
         Model → Levels → Type Groups → Elements.
+
+        Performance Notes:
+            - Threading? Could be cool, but:
+                - Profile code first. Do we need it?
+                - Not really I/O bound. Our traversal is just walking through an in-memory object structure
+                - TBH I'm scared of the hierarchy
+                - Thread safety? Shared loggers and aggregators.
+            - Flattening nested iterations?
+                - Code less readable (e.g. chain.from_iterable(..))
+                - Obscures hierarchical nature of data
+                - Performance benefit(s) minimal?
+                - Harder to debug
         """
         levels = self._get_elements(model, "model")
 
