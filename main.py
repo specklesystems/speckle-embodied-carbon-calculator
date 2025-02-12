@@ -39,12 +39,23 @@ def automate_function(
         commit_root = automate_context.speckle_client.commit.get(
             automate_context.automation_run_data.project_id, version_id
         )
+        model_root = automate_context.receive_version()
 
         # Validate source application
         source_validator = RevitSourceValidator()  # Built for revit, therefore check
-        if not source_validator.validate(commit_root.sourceApplication):
+        if not source_validator.validate_source_application(
+            commit_root.sourceApplication
+        ):
             automate_context.mark_run_failed(
-                f"Automation requires Revit v3 commits. Received: {commit_root.sourceApplication}"
+                f"Automation requires models from Revit. Received: {commit_root.sourceApplication}"
+            )
+            return
+        if not source_validator.validate_connector_version(
+            int(getattr(model_root, "version", 2))
+        ):
+            automate_context.mark_run_failed(
+                "Automation required Revit models using the v3 "
+                "connector. Received: v2."
             )
             return
 
@@ -52,7 +63,6 @@ def automate_function(
         processor = configure_components()
 
         # Process model
-        model_root = automate_context.receive_version()  # TODO: Line 35 and 36!?
         processor.process_elements(model_root)
 
         # Logger information - successes
