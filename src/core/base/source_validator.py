@@ -5,14 +5,13 @@ class SourceApplicationValidator(ABC):
     """Interface for source application validator.
     Host app should be supported by the automation.
     """
+
     @abstractmethod
-    def validate(self, source_app: str) -> bool:
-        """Assert that the source application is supported.
+    def validate_source_application(self, source_app: str) -> bool:
+        """Assert that the source application is supported."""
+        pass
 
-        Args:
-            source_app (str): sourceApplication from the commit root
-
-        Returns:
-            bool: True if supported, False if not
-        """
+    @abstractmethod
+    def validate_connector_version(self, connector_version: str) -> bool:
+        """Assert that the connector version is supported."""
         pass

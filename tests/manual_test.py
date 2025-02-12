@@ -59,19 +59,25 @@ def create_processor_chain() -> tuple[RevitModel, RevitLogger]:
 try:
     # Get version data
     commit_root = branch.commits.items[0]
+    model_root = model_data
 
     # Validate source application
     source_validator = RevitSourceValidator()
-    if not source_validator.validate(commit_root.sourceApplication):
+    if not source_validator.validate_source_application(commit_root.sourceApplication):
         print(
             f"Automation requires Revit v3 commits. Received: {commit_root.sourceApplication}"
+        )
+    if not source_validator.validate_connector_version(
+        int(getattr(model_root, "version", 2))
+    ):
+        print(
+            "Automation required Revit models using the v3 " "connector. Received: v2."
         )
 
     # Create processor chain and get logger for results
     processor, logger = create_processor_chain()
 
     # Process model
-    model_root = model_data
     processor.process_elements(model_root)
 
     # Report compliance issues
