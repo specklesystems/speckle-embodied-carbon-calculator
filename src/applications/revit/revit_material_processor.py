@@ -30,9 +30,6 @@ class RevitMaterialProcessor(MaterialProcessor):
         # Volume has already been checked for
         volume = material_data[VOLUME][VALUE]
 
-        if object_id == "a89ce8ffee4bded01836d46f0e26bf55":
-            print("Now pay attention")
-
         try:
             if STRUCTURAL_ASSET in material_data:
                 return self._high_quality_strategy.process(

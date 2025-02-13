@@ -79,8 +79,6 @@ class RevitModel(Model):
 
         try:
             # Process each material if element passed validation
-            # TODO: Project 2427 is an interesting one with compound materials
-            # TODO: Checkout object fefcc95c2f0ecd28a49ecdd7764e2d79. Worth skipping if volume = 0?
             for material_name, material_data in material_quantities.items():
                 processed_material = self._material_processor.process(
                     object_id, material_data, level, type_name
@@ -91,6 +89,15 @@ class RevitModel(Model):
                         category="Successfully Processed",
                         message="Carbon calculations completed successfully for this element.",
                     )
+
+                    model_object[PROPERTIES]["Embodied Carbon Data"] = vars(
+                        processed_material
+                    )
+
+                    if getattr(processed_material, "type") == "Concrete":
+                        model_object[PROPERTIES]["Embodied Carbon Data"][
+                            "element"
+                        ] = self._categorize(type_name)
 
         except Exception as e:
             # Log any processing errors that occur
@@ -143,3 +150,23 @@ class RevitModel(Model):
     def _get_name(node: Any) -> str:
         """Safely get name from node, with fallback"""
         return getattr(node, NAME, "Unknown")
+
+    @staticmethod
+    def _categorize(type_name: str) -> str:
+        searchable_string = type_name.lower()
+        if (
+            "floor" in searchable_string
+            or "stair" in searchable_string
+            or "slab edges" in searchable_string
+        ):
+            return "Slabs"
+        elif "wall" in searchable_string:
+            return "Walls"
+        elif "column" in searchable_string:
+            return "Columns"
+        elif "framing" in searchable_string or "beam" in searchable_string:
+            return "Beam"
+        elif "foundation" in searchable_string:
+            return "Foundations"
+        else:
+            raise ValueError(f"{type_name} not accounted for.")
