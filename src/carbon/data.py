@@ -1,6 +1,6 @@
 
 from enum import Enum
-from types import WoodSupplier
+from .types import WoodSupplier
 from src.core.types import ( MetalClass, WoodClass )
 
 """kgCO2e/kg"""

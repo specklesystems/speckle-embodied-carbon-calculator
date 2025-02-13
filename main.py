@@ -71,7 +71,7 @@ def automate_function(
             automate_context.attach_success_to_objects(
                 category=category,
                 object_ids=object_ids,
-                message="Carbon calculations completed successfully for these elements.",
+                message="Carbon calculations completed successfully for these elements!",
             )
 
         for category, object_ids in logger_infos.items():
