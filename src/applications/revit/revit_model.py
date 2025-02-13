@@ -2,6 +2,7 @@ from typing import Any, Tuple, Dict, List
 from src.core.base import Model
 from src.core.base import MaterialProcessor
 from src.core.base import Compliance
+from src.core.base import CarbonProcessor
 from src.core.base.logger import Logger
 from src.applications.revit.utils.constants import (
     ELEMENTS,
@@ -20,10 +21,12 @@ class RevitModel(Model):
     def __init__(
         self,
         material_processor: MaterialProcessor,
+        carbon_processor: CarbonProcessor,
         compliance_checker: Compliance,
         logger: Logger,
     ):
         self._material_processor = material_processor
+        self._carbon_processor = carbon_processor
         self._compliance_checker = compliance_checker
         self._logger = logger
 
@@ -84,12 +87,6 @@ class RevitModel(Model):
                     object_id, material_data, level, type_name
                 )
                 if processed_material:  # If processing was successful
-                    self._logger.log_success(
-                        object_id=object_id,
-                        category="Successfully Processed",
-                        message="Carbon calculations completed successfully for this element.",
-                    )
-
                     model_object[PROPERTIES]["Embodied Carbon Data"] = vars(
                         processed_material
                     )
@@ -98,6 +95,17 @@ class RevitModel(Model):
                         model_object[PROPERTIES]["Embodied Carbon Data"][
                             "element"
                         ] = self._categorize(type_name)
+
+                    processed_carbon = self._carbon_processor.process(model_object)
+
+                    if processed_carbon:
+                        self._logger.log_success(
+                            object_id=object_id,
+                            category="Successfully Processed",
+                            message="Carbon calculations completed successfully for this element.",
+                        )
+
+                        model_object[PROPERTIES]["Embodied Carbon Calculations"] = vars(processed_carbon)
 
         except Exception as e:
             # Log any processing errors that occur

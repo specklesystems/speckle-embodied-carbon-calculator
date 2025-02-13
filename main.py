@@ -6,26 +6,20 @@ from speckle_automate import (
 )
 
 from src.applications.revit.revit_material_processor import RevitMaterialProcessor
+from src.applications.revit.revit_carbon_processor import RevitCarbonProcessor
 from src.applications.revit.revit_compliance import RevitCompliance
 from src.applications.revit.revit_model import RevitModel
 from src.applications.revit.revit_source_validator import RevitSourceValidator
 from src.carbon.aggregator import MassAggregator
 from src.applications.revit.revit_logger import RevitLogger
 from src.core.base import Model
-
+from src.carbon import WoodSupplier
 
 # TODO: Function inputs
 class FunctionInputs(AutomateBase):
     """User-defined function inputs."""
 
-    whisper_message: SecretStr = Field(title="This is a secret message")
-    forbidden_speckle_type: str = Field(
-        title="Forbidden speckle type",
-        description=(
-            "If a object has the following speckle_type,"
-            " it will be marked with an error."
-        ),
-    )
+    wood_supplier: WoodSupplier = WoodSupplier.INDUSTRY_AVERAGE
 
 
 def automate_function(
@@ -133,11 +127,13 @@ def configure_components() -> Model:
     material_processor = RevitMaterialProcessor(
         mass_aggregator, logger
     )  # Material handler to "inject"
+    carbon_processor = RevitCarbonProcessor()
     compliance_checker = RevitCompliance(logger)  # Compliance checker to "inject"
 
     # Create and return the main processor with dependencies "injected"
     return RevitModel(
         material_processor=material_processor,
+        carbon_processor=carbon_processor,
         compliance_checker=compliance_checker,
         logger=logger,
     )

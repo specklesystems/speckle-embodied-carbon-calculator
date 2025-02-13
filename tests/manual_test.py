@@ -1,6 +1,7 @@
 # pytest: skip-file
 
 from src.applications.revit.revit_material_processor import RevitMaterialProcessor
+from src.applications.revit.revit_carbon_processor import RevitCarbonProcessor
 from src.applications.revit.revit_compliance import RevitCompliance
 from src.applications.revit.revit_model import RevitModel
 from src.applications.revit.revit_source_validator import RevitSourceValidator
@@ -43,12 +44,14 @@ def create_processor_chain() -> tuple[RevitModel, RevitLogger]:
 
     # Create processors
     material_processor = RevitMaterialProcessor(mass_aggregator, logger)
+    carbon_processor = RevitCarbonProcessor()
     compliance_checker = RevitCompliance(logger)
 
     # Create and return the main processor with logger
     return (
         RevitModel(
             material_processor=material_processor,
+            carbon_processor=carbon_processor,
             compliance_checker=compliance_checker,
             logger=logger,
         ),
