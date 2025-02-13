@@ -1,12 +1,14 @@
-from typing import Any
+from typing import Any, Tuple, Dict, List
 from src.core.base import Model
-from src.core.base import Material
+from src.core.base import MaterialProcessor
 from src.core.base import Compliance
 from src.core.base.logger import Logger
 from src.applications.revit.utils.constants import (
     ELEMENTS,
     NAME,
     ID,
+    MATERIAL_QUANTITIES,
+    PROPERTIES,
 )
 
 # NOTE: Only provide docstring if not covered by base class
@@ -17,7 +19,7 @@ class RevitModel(Model):
 
     def __init__(
         self,
-        material_processor: Material,
+        material_processor: MaterialProcessor,
         compliance_checker: Compliance,
         logger: Logger,
     ):
@@ -67,32 +69,62 @@ class RevitModel(Model):
             model_object (Any): speckle object containing properties for processing
         """
         # First check compliance - this also handles logging any validation warnings
-        validation = self._compliance_checker.check_compliance(model_object, [])
-        if not validation.is_valid:
+        valid = self._compliance_checker.check_compliance(model_object)
+        if not valid:
             return
+
+        # These are now safe to do after compliance checking
+        material_quantities = model_object[PROPERTIES][MATERIAL_QUANTITIES]
+        object_id = getattr(model_object, ID)
 
         try:
             # Process each material if element passed validation
-            # TODO: Project 2427 is an interesting one with compound materials
-            # TODO: Checkout object fefcc95c2f0ecd28a49ecdd7764e2d79. Worth skipping if volume = 0?
-            for material_name, material_data in validation.material_quantities.items():
-                self._material_processor.process_material(
-                    material_data, level, type_name
+            for material_name, material_data in material_quantities.items():
+                processed_material = self._material_processor.process(
+                    object_id, material_data, level, type_name
                 )
-                # Log success only after all material processing complete
-                self._logger.log_success(getattr(model_object, ID))
+                if processed_material:  # If processing was successful
+                    self._logger.log_success(
+                        object_id=object_id,
+                        category="Successfully Processed",
+                        message="Carbon calculations completed successfully for this element.",
+                    )
+
+                    model_object[PROPERTIES]["Embodied Carbon Data"] = vars(
+                        processed_material
+                    )
+
+                    if getattr(processed_material, "type") == "Concrete":
+                        model_object[PROPERTIES]["Embodied Carbon Data"][
+                            "element"
+                        ] = self._categorize(type_name)
 
         except Exception as e:
             # Log any processing errors that occur
-            self._logger.log_error(
-                f"Failed to process element {getattr(model_object, ID)}", error=str(e)
-            )
+            self._logger.log_error(object_id, "Material Processing Error", str(e))
 
-    # TODO: This is gross.
-    def get_processing_results(self) -> tuple[list, dict]:
+    def get_processing_results(
+        self,
+    ) -> Tuple[
+        Dict[str, List[str]],
+        Dict[str, List[str]],
+        Dict[str, List[str]],
+        Dict[str, List[str]],
+    ]:
+        """Get processing results in the format expected by main.py.
+
+        Returns:
+            Tuple containing:
+            - Dict mapping success categories to lists of successfully processed object IDs
+            - Dict mapping information categories to lists of affected object IDs
+            - Dict mapping warning categories to lists of affected object IDs
+            - Dict mapping error categories to lists of affected object IDs
+        """
         return (
-            self._logger.get_successful_summary(),
+            self._logger.get_success_summary(),
+            self._logger.get_info_summary(),
             self._logger.get_warnings_summary(),
+            self._logger.get_errors_summary(),
         )
 
     @staticmethod
@@ -118,3 +150,23 @@ class RevitModel(Model):
     def _get_name(node: Any) -> str:
         """Safely get name from node, with fallback"""
         return getattr(node, NAME, "Unknown")
+
+    @staticmethod
+    def _categorize(type_name: str) -> str:
+        searchable_string = type_name.lower()
+        if (
+            "floor" in searchable_string
+            or "stair" in searchable_string
+            or "slab edges" in searchable_string
+        ):
+            return "Slabs"
+        elif "wall" in searchable_string:
+            return "Walls"
+        elif "column" in searchable_string:
+            return "Columns"
+        elif "framing" in searchable_string or "beam" in searchable_string:
+            return "Beam"
+        elif "foundation" in searchable_string:
+            return "Foundations"
+        else:
+            raise ValueError(f"{type_name} not accounted for.")

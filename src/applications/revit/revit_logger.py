@@ -1,48 +1,85 @@
 import structlog
-from typing import Dict, DefaultDict
+from typing import Dict, Set, Optional
 from collections import defaultdict
 
 from src.core.base.logger import Logger  # Import the interface
 
-# NOTE: Only provide docstring if not covered by base class
-
 
 class RevitLogger(Logger):
-    """Implements Logger interface"""
+    """Implements Logger interface with category-based logging"""
 
     def __init__(self):
-        self.missing_properties: DefaultDict[str, set] = defaultdict(set)
-        self.successful_elements: set = set()
         self._structlog = structlog.get_logger()
+        self._errors: Dict[str, Set[str]] = defaultdict(set)
+        self._warnings: Dict[str, Set[str]] = defaultdict(set)
+        self._successes: Dict[str, Set[str]] = defaultdict(set)
+        self._info: Dict[str, Set[str]] = defaultdict(set)
 
-    def log_error(self, message: str, **kwargs) -> None:
-        self._structlog.error(message, **kwargs)
+    def log_error(
+        self, object_id: str, category: str, message: Optional[str] = None
+    ) -> None:
+        """Log an error for a specific object under a category"""
+        self._errors[category].add(object_id)
+        if message:
+            self._structlog.error(message, object_id=object_id, category=category)
+        else:
+            self._structlog.error(
+                "Error logged", object_id=object_id, category=category
+            )
 
-    def log_warning(self, message: str, **kwargs) -> None:
-        """Log a warning message.
-        Categorises and caches missing properties if 'missing_property' and 'object_id' specified in the kwargs.
+    def log_warning(
+        self, object_id: str, category: str, message: Optional[str] = None
+    ) -> None:
+        """Log a warning for a specific object under a category"""
+        self._warnings[category].add(object_id)
+        if message:
+            self._structlog.warning(message, object_id=object_id, category=category)
+        else:
+            self._structlog.warning(
+                "Warning logged", object_id=object_id, category=category
+            )
 
-        Args:
-            message: Warning message to log
-            **kwargs: Additional context. If 'object_id' and 'missing_property' are
-                     provided, they will be tracked for compliance reporting.
-        """
-        self._structlog.warn(message, **kwargs)
+    def log_success(
+        self, object_id: str, category: str, message: Optional[str] = None
+    ) -> None:
+        """Log a success for a specific object under a category"""
+        self._successes[category].add(object_id)
+        if message:
+            self._structlog.info(message, object_id=object_id, category=category)
+        else:
+            self._structlog.info(
+                "Success logged", object_id=object_id, category=category
+            )
 
-        # Track missing properties if relevant kwargs are provided
-        object_id = kwargs.get("object_id")
-        missing_property = kwargs.get("missing_property")
-        if object_id and missing_property:
-            self.missing_properties[missing_property].add(object_id)
+    def log_info(
+        self, object_id: str, category: str, message: Optional[str] = None
+    ) -> None:
+        """Log information for a specific object under a category"""
+        self._info[category].add(object_id)
+        if message:
+            self._structlog.info(message, object_id=object_id, category=category)
+        else:
+            self._structlog.info(
+                "Information logged", object_id=object_id, category=category
+            )
 
-    def log_success(self, object_id: str, **kwargs) -> None:
-        self._structlog.info(f"Successfully processed element", object_id=object_id)
-        self.successful_elements.add(object_id)
+    @staticmethod
+    def _convert_sets_to_lists(data: Dict[str, Set[str]]) -> Dict[str, list]:
+        """Convert set values to lists in dictionary"""
+        return {category: list(objects) for category, objects in data.items()}
 
     def get_warnings_summary(self) -> Dict[str, list]:
-        return {
-            prop: list(elements) for prop, elements in self.missing_properties.items()
-        }
+        """Get all warnings grouped by category"""
+        return self._convert_sets_to_lists(self._warnings)
 
-    def get_successful_summary(self) -> list:
-        return list(self.successful_elements)
+    def get_errors_summary(self) -> Dict[str, list]:
+        """Get all errors grouped by category"""
+        return self._convert_sets_to_lists(self._errors)
+
+    def get_success_summary(self) -> Dict[str, list]:
+        """Get all successes grouped by category"""
+        return self._convert_sets_to_lists(self._successes)
+
+    def get_info_summary(self) -> Dict[str, list]:
+        """Get all info logs grouped by category"""
+        return self._convert_sets_to_lists(self._info)

@@ -1,6 +1,6 @@
 # pytest: skip-file
 
-from src.applications.revit.revit_material import RevitMaterial
+from src.applications.revit.revit_material_processor import RevitMaterialProcessor
 from src.applications.revit.revit_compliance import RevitCompliance
 from src.applications.revit.revit_model import RevitModel
 from src.applications.revit.revit_source_validator import RevitSourceValidator
@@ -16,7 +16,7 @@ from specklepy.transports.server import ServerTransport
 HOST = "https://app.speckle.systems/"
 AUTHENTICATION_TOKEN = "840e5a18cda38ccc2a9ed8b52e9316530505c14181"
 STREAM_ID = "99bdf924fb"
-BRANCH_NAME = "2391"
+BRANCH_NAME = "2843"
 
 # Setting up SpeckleClient and authenticating
 client = SpeckleClient(host=HOST)
@@ -42,7 +42,7 @@ def create_processor_chain() -> tuple[RevitModel, RevitLogger]:
     mass_aggregator = MassAggregator()
 
     # Create processors
-    material_processor = RevitMaterial(mass_aggregator)
+    material_processor = RevitMaterialProcessor(mass_aggregator, logger)
     compliance_checker = RevitCompliance(logger)
 
     # Create and return the main processor with logger

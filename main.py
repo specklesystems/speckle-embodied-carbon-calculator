@@ -5,13 +5,13 @@ from speckle_automate import (
     execute_automate_function,
 )
 
-from src.applications.revit.revit_material import RevitMaterial
+from src.applications.revit.revit_material_processor import RevitMaterialProcessor
 from src.applications.revit.revit_compliance import RevitCompliance
 from src.applications.revit.revit_model import RevitModel
 from src.applications.revit.revit_source_validator import RevitSourceValidator
 from src.carbon.aggregator import MassAggregator
 from src.applications.revit.revit_logger import RevitLogger
-from src.core.base import Model, Logger
+from src.core.base import Model
 
 
 # TODO: Function inputs
@@ -66,26 +66,40 @@ def automate_function(
         processor.process_elements(model_root)
 
         # Logger information - successes
-        logger_successes, logger_warnings = processor.get_processing_results()
-        if logger_successes:
+        (
+            logger_successes,
+            logger_infos,
+            logger_warnings,
+            logger_failures,
+        ) = processor.get_processing_results()
+
+        for category, object_ids in logger_successes.items():
             automate_context.attach_success_to_objects(
-                category="Successfully Processed",
-                object_ids=logger_successes,
-                message="Carbon calculations completed successfully for this element.",
+                category=category,
+                object_ids=object_ids,
+                message="Carbon calculations completed successfully for these elements.",
             )
 
-        # Logger information - warnings
-        if logger_warnings:
-            for missing_property, elements in logger_warnings.items():
-                automate_context.attach_warning_to_objects(
-                    category="Missing Required Revit Properties",
-                    object_ids=elements,
-                    message=(
-                        f"Property '{missing_property}' is missing, which prevents carbon "
-                        f"calculations. If this element is critical to your analysis, please "
-                        f"update its Revit properties."
-                    ),
-                )
+        for category, object_ids in logger_infos.items():
+            automate_context.attach_info_to_objects(
+                category=category,
+                object_ids=object_ids,
+                message="Elements deemed not applicable and skipped.",
+            )
+
+        for category, object_ids in logger_warnings.items():
+            automate_context.attach_warning_to_objects(
+                category=category,
+                object_ids=object_ids,
+                message="Elements requiring careful review.",
+            )
+
+        for category, object_ids in logger_failures.items():
+            automate_context.attach_error_to_objects(
+                category=category,
+                object_ids=object_ids,
+                message="Failure processing the following elements.",
+            )
 
         # TODO: Create new version
         # automate_context.create_new_version_in_project(model_root, "dev", "")
@@ -116,7 +130,9 @@ def configure_components() -> Model:
     # TODO: results_aggregator = ResultAggregator and get rid of mass_aggregator
 
     # Create processors
-    material_processor = RevitMaterial(mass_aggregator)  # Material handler to "inject"
+    material_processor = RevitMaterialProcessor(
+        mass_aggregator, logger
+    )  # Material handler to "inject"
     compliance_checker = RevitCompliance(logger)  # Compliance checker to "inject"
 
     # Create and return the main processor with dependencies "injected"
