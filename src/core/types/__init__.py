@@ -1,3 +1,3 @@
-from .material import MaterialData
+from .material_data import MaterialData
 
 __all__ = ["MaterialData"]

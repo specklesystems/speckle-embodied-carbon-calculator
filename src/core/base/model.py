@@ -1,5 +1,5 @@
 from abc import ABC, abstractmethod
-from typing import Any
+from typing import Any, Dict, Tuple, List
 
 
 class Model(ABC):
@@ -28,6 +28,13 @@ class Model(ABC):
 
     # TODO: This is gross
     @abstractmethod
-    def get_processing_results(self) -> tuple[list, dict]:
+    def get_processing_results(
+        self,
+    ) -> Tuple[
+        Dict[str, List[str]],
+        Dict[str, List[str]],
+        Dict[str, List[str]],
+        Dict[str, List[str]],
+    ]:
         """Expose logging results."""
         pass
