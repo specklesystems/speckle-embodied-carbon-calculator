@@ -1,4 +1,3 @@
-from pydantic import Field, SecretStr
 from speckle_automate import (
     AutomateBase,
     AutomationContext,
@@ -8,12 +7,12 @@ from speckle_automate import (
 from src.applications.revit.revit_material_processor import RevitMaterialProcessor
 from src.applications.revit.revit_carbon_processor import RevitCarbonProcessor
 from src.applications.revit.revit_compliance import RevitCompliance
-from src.applications.revit.revit_model import RevitModel
+from src.applications.revit.revit_model import RevitElementProcessor
 from src.applications.revit.revit_source_validator import RevitSourceValidator
 from src.carbon.aggregator import MassAggregator
 from src.applications.revit.revit_logger import RevitLogger
-from src.core.base import Model
 from src.carbon import WoodSupplier
+
 
 # TODO: Function inputs
 class FunctionInputs(AutomateBase):
@@ -54,18 +53,16 @@ def automate_function(
             return
 
         # Create processor chain and get logger for results
-        processor = configure_components()
+        processor = initialize_revit_processor()
 
-        # Process model
-        processor.process_elements(model_root)
+        # Analyze elements
+        processor.analyze_elements(model_root)
 
         # Logger information - successes
-        (
-            logger_successes,
-            logger_infos,
-            logger_warnings,
-            logger_failures,
-        ) = processor.get_processing_results()
+        logger_infos = processor.logger.get_info_summary()
+        logger_successes = processor.logger.get_success_summary()
+        logger_warnings = processor.logger.get_warnings_summary()
+        logger_failures = processor.logger.get_errors_summary()
 
         for category, object_ids in logger_successes.items():
             automate_context.attach_success_to_objects(
@@ -107,7 +104,7 @@ def automate_function(
 
 # TODO instead of hard-coding revit, demo a factory method to inject implementations based on
 #  function input
-def configure_components() -> Model:
+def initialize_revit_processor() -> RevitElementProcessor:
     """Configures and wires up processor components with dependencies.
 
     Creates core system components (logger, aggregator) and configures processors
@@ -131,7 +128,7 @@ def configure_components() -> Model:
     compliance_checker = RevitCompliance(logger)  # Compliance checker to "inject"
 
     # Create and return the main processor with dependencies "injected"
-    return RevitModel(
+    return RevitElementProcessor(
         material_processor=material_processor,
         carbon_processor=carbon_processor,
         compliance_checker=compliance_checker,
