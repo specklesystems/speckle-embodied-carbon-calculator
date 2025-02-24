@@ -64,17 +64,10 @@ class RevitCarbonAnalyzer:
             "total_carbon": 0.0,
         }
 
-        # Debug: Print number of elements found
-        element_count = 0
         # Process each element
         for element in self._iterate_elements(model_root):
-            element_count += 1
             try:
-                print(
-                    f"Processing element {getattr(element, 'id', 'unknown')}"
-                )  # Debug
                 element_result = self._process_single_element(element)
-                print(f"Result status: {element_result['status']}")  # Debug
                 if element_result["status"] == "processed":
                     results["processed_elements"].append(element_result)
                     results["total_carbon"] += element_result["total_carbon"]
@@ -83,7 +76,6 @@ class RevitCarbonAnalyzer:
                 else:
                     results["errors"].append(element_result)
             except Exception as e:
-                print(f"Error processing element: {str(e)}")  # Debug
                 results["errors"].append(
                     {
                         "id": getattr(element, "id", "unknown"),
@@ -92,7 +84,6 @@ class RevitCarbonAnalyzer:
                     }
                 )
 
-        print(f"Total elements found: {element_count}")  # Debug
         return results
 
     def _process_single_element(self, element: Dict) -> Dict:
