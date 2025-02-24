@@ -47,20 +47,19 @@ class EmissionFactorRegistry:
                 "glt",
                 "nlt",
                 "dlt",
-                "glue laminated timber",
                 "nail laminated timber",
                 "dowel laminated timber",
             ],
         }
 
         self._steel_aliases = {
-            "hot rolled": ["hot-rolled", "hot_rolled", "hotrolled"],
-            "hss": ["hollow structural section", "hollow section", "tube steel"],
-            "plate": ["steel plate", "flat plate"],
+            "hot rolled": ["hot-rolled", "hot_rolled", "hotrolled", "steel"],
+            "hss": ["hollow structural section", "hollow section", "tube"],
+            "plate": ["flat plate"],
             "rebar": ["reinforcing bar", "reinforcement"],
             "owsj": ["open web steel joist", "steel joist"],
             "fasteners": ["bolts", "screws", "nails", "rivets"],
-            "metal deck": ["steel deck", "decking"],
+            "metal deck": ["deck", "decking"],
         }
 
         self._concrete_aliases = {
@@ -94,14 +93,16 @@ class EmissionFactorRegistry:
 
     @staticmethod
     def _normalize_material_name(name: str, aliases: Dict[str, list]) -> str:
-        """Normalize material name using centralized aliases"""
+        """Normalize material name using centralized aliases with substring matching"""
         name = name.lower()
 
-        # Check if name contains any alias
-        for standard_name, variations in aliases.items():
-            if name == standard_name:
+        # Check standard names first
+        for standard_name in aliases.keys():
+            if standard_name in name:
                 return standard_name
 
+        # Then check aliases
+        for standard_name, variations in aliases.items():
             for variation in variations:
                 if variation in name:
                     return standard_name
@@ -126,6 +127,8 @@ class EmissionFactorRegistry:
         normalized_name = self._normalize_material_name(
             material_name, self._timber_aliases
         )
+        print(f"Looking up '{material_name}' in {database}")
+        print(f"Normalized name: {normalized_name}")
         return db.get_factor(normalized_name)
 
     def get_steel_factor(
@@ -145,6 +148,8 @@ class EmissionFactorRegistry:
         normalized_name = self._normalize_material_name(
             material_name, self._steel_aliases
         )
+        print(f"Looking up '{material_name}' in {database}")
+        print(f"Normalized name: {normalized_name}")
         return db.get_factor(normalized_name)
 
     def get_concrete_factor(

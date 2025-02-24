@@ -52,7 +52,12 @@ class RevitCarbonAnalyzer:
             material_processor=self.material_processor, logger=Logging()
         )
         self.carbon_calculator = CarbonCalculator(
-            steel_database=steel_database, timber_database=timber_database
+            steel_database=steel_database.value
+            if isinstance(steel_database, SteelDatabase)
+            else steel_database,
+            timber_database=timber_database.value
+            if isinstance(timber_database, SteelDatabase)
+            else timber_database,
         )
 
     def analyze_model(self, model_root) -> dict:
@@ -101,7 +106,17 @@ class RevitCarbonAnalyzer:
 
         # Calculate carbon
         try:
+            print(
+                f"Processing element: {element_id}, category: {processed_element.category.value}"
+            )
+            print(
+                f"Materials: {[m.properties.name for m in processed_element.materials]}"
+            )
             carbon_results = self.carbon_calculator.calculate_carbon(processed_element)
+            print(f"Carbon results: {carbon_results}")
+            print(
+                f"Total carbon: {sum(r.total_carbon for r in carbon_results.values())}"
+            )
             return {
                 "id": element_id,
                 "status": "processed",

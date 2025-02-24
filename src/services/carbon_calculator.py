@@ -30,7 +30,11 @@ class CarbonCalculator:
         """Calculate carbon emissions for an element's materials."""
         results = {}
 
+        print(f"Calculating carbon for {len(element.materials)} materials")
         for material in element.materials:
+            print(f"  Material: {material.properties.name}, type: {material.type}")
+            print(f"  Structural asset: {material.properties.structural_asset}")
+            print(f"  Volume: {material.properties.volume}, Mass: {material.mass}")
             try:
                 result = self._calculate_material_carbon(material)
                 results[material.properties.name] = result
@@ -44,6 +48,7 @@ class CarbonCalculator:
 
     def _calculate_material_carbon(self, material: Material) -> CarbonResult:
         """Calculate carbon emissions for a single material."""
+        print(f"Calculating for material type: {material.type}")
         if material.type == MaterialType.METAL:
             return self._calculate_metal_carbon(material)
         elif material.type == MaterialType.WOOD:
@@ -60,9 +65,11 @@ class CarbonCalculator:
 
         # Get factor from cache or registry
         if material.grade not in self._steel_factors_cache:
+            print(f"Metal: {material.grade} → {self._steel_database}")
             factor = self._registry.get_steel_factor(
                 material.grade, self._steel_database
             )
+            print(f"Factor found: {factor}")
             if not factor:
                 raise ValueError(
                     f"No emission factor found for metal grade: {material.grade}"
@@ -82,9 +89,13 @@ class CarbonCalculator:
 
         # Get factor from cache or registry
         if structural_asset not in self._timber_factors_cache:
+            print(
+                f"Wood: {material.properties.structural_asset} → {self._timber_database}"
+            )
             factor = self._registry.get_timber_factor(
                 structural_asset, self._timber_database
             )
+            print(f"Factor found: {factor}")
             if not factor:
                 raise ValueError(
                     f"No emission factor found for wood type: {structural_asset}"
