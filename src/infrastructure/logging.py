@@ -2,10 +2,8 @@ import structlog
 from typing import Dict, Set, Optional
 from collections import defaultdict
 
-from src.core.base.logger import Logger  # Import the interface
 
-
-class RevitLogger(Logger):
+class Logging:
     """Implements Logger interface with category-based logging"""
 
     def __init__(self):
