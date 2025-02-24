@@ -1,5 +1,7 @@
 from collections import defaultdict
+from enum import Enum
 
+from pydantic import Field
 from speckle_automate import (
     AutomateBase,
     AutomationContext,
@@ -14,22 +16,65 @@ from src.services.element_processor import ElementProcessor
 from src.services.material_processor import MaterialProcessor
 
 
+class TimberDatabase(Enum):
+    Athena2021 = "ATHENA 2021"
+    Structurlam2020 = "Structurlam, 2020"
+    AwcCwc2018 = "AWC, CWC, 2018"
+    Katerra2020 = "Katerra, 2020"
+    NordicStructures2018 = "Nordic Structures, 2018"
+    Binderholz2019 = "Binderholz, 2019"
+    StructuralamAbbotsford = "Structuralam Abbotsford"
+    CLFBaselineDocument = "CLF Baseline Document"
+    IndustryAverage = "INDUSTRY AVERAGE"
+
+
+class SteelDatabase(Enum):
+    Type350MPa = "Type 350 MPa"
+
+
+# TODO
+class ConcreteDatabase(Enum):
+    pass
+
+
+def create_one_of_enum(enum_cls):
+    """
+    Helper function to create a JSON schema from an Enum class.
+    This is used for generating user input forms in the UI.
+    """
+    return [{"const": item.value, "title": item.name} for item in enum_cls]
+
+
 # TODO: Function inputs
 class FunctionInputs(AutomateBase):
     """User-defined function inputs."""
 
-    # wood_supplier: WoodSupplier = WoodSupplier.INDUSTRY_AVERAGE
+    steel_database: str = Field(
+        default=SteelDatabase.Type350MPa,
+        title="Steel Database",
+        description="Database used for the GWP of steel objects",
+        json_schema_extra={"oneOf": create_one_of_enum(SteelDatabase)},
+    )
+
+    timber_database: str = Field(
+        default=TimberDatabase.Binderholz2019,
+        title="Timber Database",
+        description="Database used for the GWP of timber objects",
+        json_schema_extra={"oneOf": create_one_of_enum(TimberDatabase)},
+    )
 
 
 class RevitCarbonAnalyzer:
     """Main application for analyzing carbon in Revit models."""
 
-    def __init__(self):
+    def __init__(self, steel_database: str, timber_database: str):
         self.material_processor = MaterialProcessor()
         self.element_processor = ElementProcessor(
             material_processor=self.material_processor, logger=Logging()
         )
-        self.carbon_calculator = CarbonCalculator()
+        self.carbon_calculator = CarbonCalculator(
+            steel_database=steel_database, timber_database=timber_database
+        )
 
     def analyze_model(self, model_root) -> dict:
         """Analyze a Revit model for carbon emissions."""
