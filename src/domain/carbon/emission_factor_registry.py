@@ -53,7 +53,14 @@ class EmissionFactorRegistry:
         }
 
         self._steel_aliases = {
-            "hot rolled": ["hot-rolled", "hot_rolled", "hotrolled", "steel"],
+            "hot rolled": [
+                "hot-rolled",
+                "hot_rolled",
+                "hotrolled",
+                "345 MPa",
+                "350W",
+                "350W(1)",
+            ],
             "hss": ["hollow structural section", "hollow section", "tube"],
             "plate": ["flat plate"],
             "rebar": ["reinforcing bar", "reinforcement"],
@@ -93,21 +100,41 @@ class EmissionFactorRegistry:
 
     @staticmethod
     def _normalize_material_name(name: str, aliases: Dict[str, list]) -> str:
-        """Normalize material name using centralized aliases with substring matching"""
-        name = name.lower()
+        """Normalize material name using centralized aliases with enhanced matching.
 
-        # Check standard names first
+        This improved version handles:
+        - Case insensitivity
+        - Direct matches (exact)
+        - Substring matches (contains)
+        - Special known cases
+        """
+
+        # Convert to lowercase for case-insensitive comparison
+        name = name.lower().strip()
+
+        # Special case handling
+        if any(
+            steel_name in name
+            for steel_name in ["345 mpa", "350w", "steel 345", "default_steel"]
+        ):
+            return "Hot Rolled"  # Map all these variants to Hot Rolled steel
+
+        # Check for direct match with standard names
         for standard_name in aliases.keys():
-            if standard_name in name:
+            if standard_name.lower() == name:
                 return standard_name
 
-        # Then check aliases
+        # Check for standard name appearing as substring
+        for standard_name in aliases.keys():
+            if standard_name.lower() in name:
+                return standard_name
+
+        # Check aliases
         for standard_name, variations in aliases.items():
             for variation in variations:
-                if variation in name:
+                if variation.lower() == name or variation.lower() in name:
                     return standard_name
 
-        # If no match found, return original
         return name
 
     def get_timber_factor(
@@ -127,8 +154,6 @@ class EmissionFactorRegistry:
         normalized_name = self._normalize_material_name(
             material_name, self._timber_aliases
         )
-        print(f"Looking up '{material_name}' in {database}")
-        print(f"Normalized name: {normalized_name}")
         return db.get_factor(normalized_name)
 
     def get_steel_factor(
@@ -148,8 +173,6 @@ class EmissionFactorRegistry:
         normalized_name = self._normalize_material_name(
             material_name, self._steel_aliases
         )
-        print(f"Looking up '{material_name}' in {database}")
-        print(f"Normalized name: {normalized_name}")
         return db.get_factor(normalized_name)
 
     def get_concrete_factor(

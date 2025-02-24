@@ -67,6 +67,7 @@ class RevitCarbonAnalyzer:
             "skipped_elements": [],
             "errors": [],
             "total_carbon": 0.0,
+            "missing_factors": {"timber": [], "steel": []},
         }
 
         # Process each element
@@ -89,6 +90,22 @@ class RevitCarbonAnalyzer:
                     }
                 )
 
+            # Get missing factors
+        missing_timber, missing_steel = self.carbon_calculator.get_missing_factors()
+        results["missing_factors"]["timber"] = missing_timber
+        results["missing_factors"]["steel"] = missing_steel
+
+        # Log missing factors
+        if missing_timber:
+            print(f"Missing timber factors ({len(missing_timber)}):")
+            for item in missing_timber:
+                print(f"  - {item}")
+
+        if missing_steel:
+            print(f"Missing steel factors ({len(missing_steel)}):")
+            for item in missing_steel:
+                print(f"  - {item}")
+
         return results
 
     def _process_single_element(self, element: Dict) -> Dict:
@@ -106,17 +123,7 @@ class RevitCarbonAnalyzer:
 
         # Calculate carbon
         try:
-            print(
-                f"Processing element: {element_id}, category: {processed_element.category.value}"
-            )
-            print(
-                f"Materials: {[m.properties.name for m in processed_element.materials]}"
-            )
             carbon_results = self.carbon_calculator.calculate_carbon(processed_element)
-            print(f"Carbon results: {carbon_results}")
-            print(
-                f"Total carbon: {sum(r.total_carbon for r in carbon_results.values())}"
-            )
             return {
                 "id": element_id,
                 "status": "processed",
@@ -157,10 +164,20 @@ def automate_function(
 ) -> None:
     """Program entry point."""
     try:
+        # Get string values from enums if needed
+        steel_db = function_inputs.steel_database
+        timber_db = function_inputs.timber_database
+
+        # Ensure we're working with string values
+        if hasattr(steel_db, "value"):
+            steel_db = steel_db.value
+        if hasattr(timber_db, "value"):
+            timber_db = timber_db.value
+
         # Initialize analyzer
         analyzer = RevitCarbonAnalyzer(
-            steel_database=function_inputs.steel_database,
-            timber_database=function_inputs.timber_database,
+            steel_database=steel_db,
+            timber_database=timber_db,
         )
 
         # Get commit root
@@ -183,11 +200,45 @@ def automate_function(
         # Process results
         _process_automation_results(automate_context, results)
 
-        # Mark success
-        automate_context.mark_run_success(
-            f"Analysis complete. Processed {len(results['processed_elements'])} elements. "
-            f"Total carbon: {results['total_carbon']:.2f} kgCO2e"
+        # Prepare detailed success message
+        success_message = (
+            f"🚀 Analysis complete.\n\n\tProcessed:\t\t{len(results['processed_elements'])} elements.\n\t"
+            f"Total carbon:\t{results['total_carbon']:.2f} kgCO₂e\n"
         )
+
+        # Add missing factors to message if any
+        missing_timber = results["missing_factors"]["timber"]
+        missing_steel = results["missing_factors"]["steel"]
+
+        if missing_timber or missing_steel:
+            success_message += "\nMissing emission factors detected:\n"
+
+            if missing_timber:
+                success_message += (
+                    f"- Timber ({len(missing_timber)}): {', '.join(missing_timber[:5])}"
+                )
+                if len(missing_timber) > 5:
+                    success_message += f" and {len(missing_timber) - 5} more"
+                success_message += "\n"
+
+            if missing_steel:
+                success_message += (
+                    f"- Steel ({len(missing_steel)}): {', '.join(missing_steel[:5])}"
+                )
+                if len(missing_steel) > 5:
+                    success_message += f" and {len(missing_steel) - 5} more"
+                success_message += "\n"
+
+            success_message += "\nThese materials were assigned zero carbon. Consider updating the database."
+
+        else:
+            success_message += (
+                "\nNOTE: All materials successfully matched with emission factors."
+                "complete."
+            )
+
+        # Mark success with detailed message
+        automate_context.mark_run_success(success_message)
 
     except Exception as e:
         automate_context.mark_run_failed(f"Analysis failed: {str(e)}")
