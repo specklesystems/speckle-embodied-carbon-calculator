@@ -1,5 +1,4 @@
 from collections import defaultdict
-from enum import Enum
 
 from pydantic import Field
 from speckle_automate import (
@@ -10,31 +9,11 @@ from speckle_automate import (
 
 from typing import Dict, Generator, Any, List
 
+from src.domain.carbon.databases.enums import SteelDatabase, TimberDatabase
 from src.infrastructure.logging import Logging
 from src.services.carbon_calculator import CarbonCalculator
 from src.services.element_processor import ElementProcessor
 from src.services.material_processor import MaterialProcessor
-
-
-class TimberDatabase(Enum):
-    Athena2021 = "ATHENA 2021"
-    Structurlam2020 = "Structurlam, 2020"
-    AwcCwc2018 = "AWC, CWC, 2018"
-    Katerra2020 = "Katerra, 2020"
-    NordicStructures2018 = "Nordic Structures, 2018"
-    Binderholz2019 = "Binderholz, 2019"
-    StructuralamAbbotsford = "Structuralam Abbotsford"
-    CLFBaselineDocument = "CLF Baseline Document"
-    IndustryAverage = "INDUSTRY AVERAGE"
-
-
-class SteelDatabase(Enum):
-    Type350MPa = "Type 350 MPa"
-
-
-# TODO
-class ConcreteDatabase(Enum):
-    pass
 
 
 def create_one_of_enum(enum_cls):
@@ -173,7 +152,10 @@ def automate_function(
     """Program entry point."""
     try:
         # Initialize analyzer
-        analyzer = RevitCarbonAnalyzer()
+        analyzer = RevitCarbonAnalyzer(
+            steel_database=function_inputs.steel_database,
+            timber_database=function_inputs.timber_database,
+        )
 
         # Get commit root
         version_id = automate_context.automation_run_data.triggers[0].payload.version_id

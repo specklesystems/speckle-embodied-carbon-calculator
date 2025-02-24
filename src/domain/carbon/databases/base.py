@@ -1,4 +1,4 @@
-from abc import ABC, abstractmethod
+from abc import ABC
 from typing import Optional, Dict
 from src.domain.carbon.schema import EmissionFactor
 
@@ -8,18 +8,13 @@ class EmissionFactorDatabase(ABC):
 
     def __init__(self):
         self._factors: Dict[str, EmissionFactor] = {}
-        self._material_aliases: Dict[str, list[str]] = {}
 
-    @abstractmethod
     def get_factor(self, material_name: str) -> Optional[EmissionFactor]:
         """Get emission factor for a material name"""
-        pass
+        material_name = material_name.lower()
+        for name, factor in self._factors.items():
+            if name.lower() == material_name:
+                return factor
 
-    def _normalize_material_name(self, name: str) -> str:
-        """Normalize material name using aliases"""
-        normalized = name.lower()
-        for standard, variations in self._material_aliases.items():
-            for variation in variations:
-                if variation in normalized:
-                    normalized = normalized.replace(variation, standard)
-        return normalized
+        # If no direct match, return None
+        return None

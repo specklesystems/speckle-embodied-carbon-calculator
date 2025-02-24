@@ -1,7 +1,6 @@
-from typing import Dict
+from typing import Dict, Optional
 
-from src.domain.carbon.registry import EmissionFactorRegistry
-from src.domain.carbon.schema import EmissionDatabase, EmissionFactor
+from src.domain.carbon.emission_factor_registry import EmissionFactorRegistry
 from src.domain.types import BuildingElement, CarbonResult, Material, MaterialType
 
 
@@ -10,39 +9,22 @@ class CarbonCalculator:
 
     def __init__(
         self,
-        metal_database: EmissionDatabase,
-        wood_database: EmissionDatabase,
-        registry: EmissionFactorRegistry,
+        steel_database: str,
+        timber_database: str,
+        concrete_database: Optional[str] = None,
     ):
-        self._registry = registry
-        self._metal_factors: dict[str, EmissionFactor] = {}
-        self._wood_factors: dict[str, EmissionFactor] = {}
+        # Store database selections
+        self._steel_database = steel_database
+        self._timber_database = timber_database
+        self._concrete_database = concrete_database
 
-        # Cache all metal factors
-        for grade in [
-            "Hot Rolled",
-            "HSS",
-            "Plate",
-            "Rebar",
-            "OWSJ",
-            "Fasteners",
-            "Metal Deck",
-        ]:
-            factor = self._registry.get_factor(grade, metal_database)
-            if factor:
-                self._metal_factors[grade] = factor
+        # Initialize registry
+        self._registry = EmissionFactorRegistry()
 
-        # Cache all wood factors
-        for wood_type in [
-            "CLT",
-            "Glulam",
-            "LVL",
-            "Softwood Lumber",
-            "Softwood Plywood",
-        ]:
-            factor = self._registry.get_factor(wood_type, wood_database)
-            if factor:
-                self._wood_factors[wood_type] = factor
+        # Cache common material factors to avoid repeated lookups
+        self._steel_factors_cache = {}
+        self._timber_factors_cache = {}
+        self._concrete_factors_cache = {}
 
     def calculate_carbon(self, element: BuildingElement) -> Dict[str, CarbonResult]:
         """Calculate carbon emissions for an element's materials."""
@@ -76,12 +58,18 @@ class CarbonCalculator:
         if not material.mass:
             raise ValueError("Mass required for metal carbon calculation")
 
-        factor = self._metal_factors.get(material.grade)
-        if not factor:
-            raise ValueError(
-                f"No emission factor found for metal grade: {material.grade}"
+        # Get factor from cache or registry
+        if material.grade not in self._steel_factors_cache:
+            factor = self._registry.get_steel_factor(
+                material.grade, self._steel_database
             )
+            if not factor:
+                raise ValueError(
+                    f"No emission factor found for metal grade: {material.grade}"
+                )
+            self._steel_factors_cache[material.grade] = factor
 
+        factor = self._steel_factors_cache[material.grade]
         return CarbonResult(
             factor=factor.value,
             total_carbon=material.mass * factor.value,
@@ -90,25 +78,29 @@ class CarbonCalculator:
 
     def _calculate_wood_carbon(self, material: Material) -> CarbonResult:
         """Calculate carbon emissions for wood."""
-        # Determine factor based on structural asset or use default
-        factor = self._wood_factors.get(material.properties.structural_asset)
-        if not factor:
-            raise ValueError(
-                f"No emission factor found for wood type: {material.properties.structural_asset}"
-            )
+        structural_asset = material.properties.structural_asset
 
+        # Get factor from cache or registry
+        if structural_asset not in self._timber_factors_cache:
+            factor = self._registry.get_timber_factor(
+                structural_asset, self._timber_database
+            )
+            if not factor:
+                raise ValueError(
+                    f"No emission factor found for wood type: {structural_asset}"
+                )
+            self._timber_factors_cache[structural_asset] = factor
+
+        factor = self._timber_factors_cache[structural_asset]
         return CarbonResult(
             factor=factor.value,
             total_carbon=material.properties.volume * factor.value,
             category="Wood",
         )
 
-    @staticmethod
-    def _calculate_concrete_carbon(material: Material) -> CarbonResult:
+    def _calculate_concrete_carbon(self, material: Material) -> CarbonResult:
         """Calculate carbon emissions for concrete."""
-        # TODO: Implement concrete-specific carbon calculation
-        # This would involve looking up factors based on concrete grade
-        # and calculating based on volume or mass depending on the data source
+        # TODO: Implement concrete-specific calculation when concrete database is added
         return CarbonResult(
             factor=0.0,  # Placeholder
             total_carbon=0.0,  # Placeholder
