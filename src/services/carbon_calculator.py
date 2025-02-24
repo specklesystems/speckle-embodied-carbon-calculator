@@ -1,26 +1,48 @@
 from typing import Dict
 
+from src.domain.carbon.registry import EmissionFactorRegistry
+from src.domain.carbon.schema import EmissionDatabase, EmissionFactor
 from src.domain.types import BuildingElement, CarbonResult, Material, MaterialType
 
 
 class CarbonCalculator:
     """Calculates embodied carbon for building elements."""
 
-    def __init__(self):
-        # Carbon factors (kgCO2e/kg for metals, kgCO2e/m3 for wood)
-        self.metal_factors = {
-            "Hot Rolled": 1.22,
-            "HSS": 1.99,
-            "Plate": 1.73,
-            "Rebar": 0.854,
-            "default": 1.22,  # Default to hot rolled
-        }
+    def __init__(
+        self,
+        metal_database: EmissionDatabase,
+        wood_database: EmissionDatabase,
+        registry: EmissionFactorRegistry,
+    ):
+        self._registry = registry
+        self._metal_factors: dict[str, EmissionFactor] = {}
+        self._wood_factors: dict[str, EmissionFactor] = {}
 
-        self.wood_factors = {
-            "CLT": 135,
-            "Glulam": 113,
-            "default": 135,  # Default to CLT
-        }
+        # Cache all metal factors
+        for grade in [
+            "Hot Rolled",
+            "HSS",
+            "Plate",
+            "Rebar",
+            "OWSJ",
+            "Fasteners",
+            "Metal Deck",
+        ]:
+            factor = self._registry.get_factor(grade, metal_database)
+            if factor:
+                self._metal_factors[grade] = factor
+
+        # Cache all wood factors
+        for wood_type in [
+            "CLT",
+            "Glulam",
+            "LVL",
+            "Softwood Lumber",
+            "Softwood Plywood",
+        ]:
+            factor = self._registry.get_factor(wood_type, wood_database)
+            if factor:
+                self._wood_factors[wood_type] = factor
 
     def calculate_carbon(self, element: BuildingElement) -> Dict[str, CarbonResult]:
         """Calculate carbon emissions for an element's materials."""
@@ -54,23 +76,30 @@ class CarbonCalculator:
         if not material.mass:
             raise ValueError("Mass required for metal carbon calculation")
 
-        # Determine factor based on grade or use default
-        factor = self.metal_factors.get(material.grade, self.metal_factors["default"])
+        factor = self._metal_factors.get(material.grade)
+        if not factor:
+            raise ValueError(
+                f"No emission factor found for metal grade: {material.grade}"
+            )
 
         return CarbonResult(
-            factor=factor, total_carbon=material.mass * factor, category="Metal"
+            factor=factor.value,
+            total_carbon=material.mass * factor.value,
+            category="Metal",
         )
 
     def _calculate_wood_carbon(self, material: Material) -> CarbonResult:
         """Calculate carbon emissions for wood."""
         # Determine factor based on structural asset or use default
-        factor = self.wood_factors.get(
-            material.properties.structural_asset, self.wood_factors["default"]
-        )
+        factor = self._wood_factors.get(material.properties.structural_asset)
+        if not factor:
+            raise ValueError(
+                f"No emission factor found for wood type: {material.properties.structural_asset}"
+            )
 
         return CarbonResult(
-            factor=factor,
-            total_carbon=material.properties.volume * factor,
+            factor=factor.value,
+            total_carbon=material.properties.volume * factor.value,
             category="Wood",
         )
 
