@@ -12,9 +12,9 @@ class ConcreteEmissionDatabase(EmissionFactorDatabase):
         super().__init__()
         self._database_name = database_name
         self._factors = {}
-        self._init_factors()
+        self._load_emission_factors_from_database()
 
-    def _init_factors(self):
+    def _load_emission_factors_from_database(self):
         """Initialize factors based on the specific database."""
         # Define mappings from database type to strength values
         database_strength_values = {

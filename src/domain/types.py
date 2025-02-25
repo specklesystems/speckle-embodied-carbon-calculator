@@ -37,8 +37,21 @@ class BuildingElement:
     materials: List[Material]
     carbon_data: Optional[Dict] = None
 
+
 @dataclass
 class CarbonResult:
     factor: float  # kgCO2e/kg for metals, kgCO2e/m3 for wood
     total_carbon: float  # kgCO2e
     category: str
+
+    # Additional fields for detailed output
+    quantity: float = None  # volume (m³) for concrete/wood, mass (kg) for metal
+    database: str = None  # database source
+
+    # Concrete-specific fields
+    concrete_volume: float = None  # m³
+    concrete_carbon: float = None  # kgCO2e
+    reinforcement_mass: float = None  # kg
+    reinforcement_rate: float = None  # kg/m³
+    reinforcement_factor: float = None  # kgCO2e/kg
+    reinforcement_carbon: float = None  # kgCO2e

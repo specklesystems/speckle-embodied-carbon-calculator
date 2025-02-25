@@ -121,6 +121,8 @@ class CarbonCalculator:
             factor=factor.value,
             total_carbon=material.mass * factor.value,
             category="Metal",
+            quantity=material.mass,
+            database=self._steel_database,
         )
 
     def _calculate_wood_carbon(self, material: Material) -> CarbonResult:
@@ -148,6 +150,8 @@ class CarbonCalculator:
             factor=factor.value,
             total_carbon=material.properties.volume * factor.value,
             category="Wood",
+            quantity=material.properties.volume,
+            database=self._timber_database,
         )
 
     def _calculate_concrete_carbon(
@@ -220,18 +224,19 @@ class CarbonCalculator:
         total_carbon = concrete_carbon + reinforcement_carbon
 
         # Create result with additional metadata
-        result = CarbonResult(
+        return CarbonResult(
             factor=concrete_factor.value,
             total_carbon=total_carbon,
             category="Concrete",
+            quantity=concrete_volume,
+            database=self._concrete_database,
+            concrete_volume=concrete_volume,
+            concrete_carbon=concrete_carbon,
+            reinforcement_mass=reinforcement_mass,
+            reinforcement_rate=reinforcement_rate,
+            reinforcement_factor=rebar_factor.value,
+            reinforcement_carbon=reinforcement_carbon,
         )
-
-        # TODO: Add extra metadata (not in original CarbonResult class, would need extension)
-        # TODO: result.concrete_carbon = concrete_carbon
-        # TODO: result.reinforcement_carbon = reinforcement_carbon
-        # TODO: result.reinforcement_rate = reinforcement_rate
-
-        return result
 
     @staticmethod
     def _map_element_category_to_concrete_type(
