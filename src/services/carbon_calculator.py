@@ -51,7 +51,10 @@ class CarbonCalculator:
 
         for material in element.materials:
             try:
-                result = self._calculate_material_carbon(material)
+                if material.type == MaterialType.CONCRETE:
+                    result = self._calculate_concrete_carbon(material, element.category)
+                else:
+                    result = self._calculate_material_carbon(material)
                 results[material.properties.name] = result
             except Exception as e:
                 # Track missing factors
@@ -66,6 +69,13 @@ class CarbonCalculator:
                         self._missing_steel_factors.add(
                             material.grade or material.properties.name
                         )
+                    elif material.type == MaterialType.CONCRETE:
+                        # Track missing concrete factors
+                        strength = str(int(material.properties.compressive_strength))
+                        element_type = self._map_element_category_to_concrete_type(
+                            element.category
+                        )
+                        self._missing_concrete_factors.add(f"{strength}_{element_type}")
 
                 print(
                     f"Error calculating carbon for {material.properties.name}: {str(e)}"
@@ -73,14 +83,20 @@ class CarbonCalculator:
 
         return results
 
-    def _calculate_material_carbon(self, material: Material) -> CarbonResult:
+    def _calculate_material_carbon(
+        self, material: Material, element_category: Optional[ElementCategory] = None
+    ) -> CarbonResult:
         """Calculate carbon emissions for a single material."""
         if material.type == MaterialType.METAL:
             return self._calculate_metal_carbon(material)
         elif material.type == MaterialType.WOOD:
             return self._calculate_wood_carbon(material)
         elif material.type == MaterialType.CONCRETE:
-            return self._calculate_concrete_carbon(material)
+            if element_category is None:
+                raise ValueError(
+                    "Element category is required for concrete carbon calculation"
+                )
+            return self._calculate_concrete_carbon(material, element_category)
         else:
             raise ValueError(f"Unsupported material type: {material.type}")
 
@@ -135,7 +151,7 @@ class CarbonCalculator:
         )
 
     def _calculate_concrete_carbon(
-        self, material: Material, element: BuildingElement
+        self, material: Material, element_category: ElementCategory
     ) -> CarbonResult:
         """Calculate carbon emissions for concrete, including reinforcement."""
         if not material.properties.compressive_strength:
@@ -157,7 +173,7 @@ class CarbonCalculator:
         strength = str(strength_mpa)
 
         # Map element category to concrete element type for the database
-        element_type = self._map_element_category_to_concrete_type(element)
+        element_type = self._map_element_category_to_concrete_type(element_category)
 
         # Create cache key for concrete factors
         concrete_cache_key = f"{strength}_{element_type}"
@@ -218,12 +234,10 @@ class CarbonCalculator:
         return result
 
     @staticmethod
-    def _map_element_category_to_concrete_type(element: BuildingElement) -> str:
+    def _map_element_category_to_concrete_type(
+        element_category: ElementCategory,
+    ) -> str:
         """Map BuildingElement category to concrete element type for database lookup."""
-        # Start with the element name
-        element_name = (
-            getattr(element, "name", "").lower() if hasattr(element, "name") else ""
-        )
 
         # Default mappings
         category_mapping = {
@@ -234,24 +248,13 @@ class CarbonCalculator:
             ElementCategory.FOUNDATION: "Foundation",
         }
 
-        # Check for specific element names in BuildingElement
-        if element_name:
-            if "grade beam" in element_name:
-                return "Grade Beam"
-            elif "slab on grade" in element_name:
-                return "Slab on Grade"
-            elif "pad footing" in element_name:
-                return "Foundation"  # Or more specific if needed
-            # Add other specific mappings as needed
+        # Return the mapped type or default to "Beam" if unknown
+        return category_mapping.get(element_category, "Beam")
 
-        # Fall back to category mapping
-        return category_mapping.get(
-            element.category, "Beam"
-        )  # Default to Beam if unknown
-
-    def get_missing_factors(self) -> Tuple[List[str], List[str]]:
+    def get_missing_factors(self) -> Tuple[List[str], List[str], List[str]]:
         """Return lists of materials that had no emission factor."""
         return (
             sorted(list(self._missing_timber_factors)),
             sorted(list(self._missing_steel_factors)),
+            sorted(list(self._missing_concrete_factors)),
         )
