@@ -1,4 +1,6 @@
 from typing import Optional, Dict
+
+from src.domain.carbon.databases.concrete.metric import ConcreteEmissionDatabase
 from src.domain.carbon.schema import EmissionFactor
 from src.domain.carbon.databases.enums import (
     TimberDatabase,
@@ -32,6 +34,7 @@ class EmissionFactorRegistry:
         self._concrete_databases = {}
 
         # Material aliases for normalization
+        # NOTE: Purely demonstrative → add aliases as needed.
         self._timber_aliases = {
             "clt": ["cross laminated timber", "cross-laminated timber"],
             "glulam": [
@@ -57,9 +60,9 @@ class EmissionFactorRegistry:
                 "hot-rolled",
                 "hot_rolled",
                 "hotrolled",
-                "345 MPa",
-                "350W",
-                "350W(1)",
+                "345 MPa",  # NOTE: Needed!
+                "350W",  # NOTE: Needed!
+                "350W(1)",  # NOTE: Needed!
             ],
             "hss": ["hollow structural section", "hollow section", "tube"],
             "plate": ["flat plate"],
@@ -76,7 +79,7 @@ class EmissionFactorRegistry:
         # Initialize all database instances
         self._init_timber_databases()
         self._init_steel_databases()
-        # self._init_concrete_databases() - empty for now
+        self._init_concrete_databases()
 
     def _init_timber_databases(self) -> None:
         """Initialize timber database implementations"""
@@ -96,6 +99,23 @@ class EmissionFactorRegistry:
         """Initialize steel database implementations"""
         self._steel_databases = {
             SteelDatabase.Type350MPa.value: Steel350MPa(),
+        }
+
+    def _init_concrete_databases(self) -> None:
+        """Initialize concrete database implementations"""
+        self._concrete_databases = {
+            ConcreteDatabase.GulLowAir.value: ConcreteEmissionDatabase(
+                ConcreteDatabase.GulLowAir.value
+            ),
+            ConcreteDatabase.GulHighAir.value: ConcreteEmissionDatabase(
+                ConcreteDatabase.GulHighAir.value
+            ),
+            ConcreteDatabase.GuLowAir.value: ConcreteEmissionDatabase(
+                ConcreteDatabase.GuLowAir.value
+            ),
+            ConcreteDatabase.GuHighAir.value: ConcreteEmissionDatabase(
+                ConcreteDatabase.GuHighAir.value
+            ),
         }
 
     @staticmethod
@@ -176,25 +196,15 @@ class EmissionFactorRegistry:
         return db.get_factor(normalized_name)
 
     def get_concrete_factor(
-        self, material_name: str, database: str
+        self, strength: str, element_type: str, database: str
     ) -> Optional[EmissionFactor]:
-        """Get emission factor for concrete from specified database"""
+        """Get emission factor for concrete from specified database based on strength and element type."""
         db = self._concrete_databases.get(database)
         if not db:
             raise ValueError(f"Unknown concrete database: {database}")
 
-        # Try direct lookup first
-        factor = db.get_factor(material_name)
-        if factor:
-            return factor
-
-        # If not found, try normalized name when concrete aliases are added
-        if self._concrete_aliases:
-            normalized_name = self._normalize_material_name(
-                material_name, self._concrete_aliases
-            )
-            return db.get_factor(normalized_name)
-        return None
+        # Concrete database requires both strength and element type
+        return db.get_factor_by_strength_and_element(strength, element_type)
 
     def list_timber_databases(self) -> list[str]:
         """List all registered timber databases"""
