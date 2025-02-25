@@ -18,4 +18,7 @@ class SteelDatabase(Enum):
 
 
 class ConcreteDatabase(Enum):
-    pass
+    GulLowAir = "GUL Cement, Low Air"
+    GulHighAir = "GUL Cement, High Air"
+    GuLowAir = "GU Cement, Low Air"
+    GuHighAir = "GU Cement, High Air"

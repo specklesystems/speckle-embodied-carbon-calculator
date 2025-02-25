@@ -202,7 +202,7 @@ def automate_function(
 
         # Prepare detailed success message
         success_message = (
-            f"🚀 Analysis complete.\n\n\tProcessed:\t\t{len(results['processed_elements'])} elements.\n\t"
+            f"🚀 Analysis complete.\n\n\tProcessed:\t\t{len(results['processed_elements'])} elements\n\t"
             f"Total carbon:\t{results['total_carbon']:.2f} kgCO₂e\n"
         )
 
@@ -234,7 +234,6 @@ def automate_function(
         else:
             success_message += (
                 "\nNOTE: All materials successfully matched with emission factors."
-                "complete."
             )
 
         # Mark success with detailed message
