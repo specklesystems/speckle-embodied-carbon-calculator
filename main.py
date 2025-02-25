@@ -269,6 +269,13 @@ def automate_function(
         concrete_db = function_inputs.concrete_database
         country = function_inputs.country
 
+        # Ensure we're working with string values, not enum objects
+        if hasattr(steel_db, "value"):
+            steel_db = steel_db.value
+        if hasattr(timber_db, "value"):
+            timber_db = timber_db.value
+        if hasattr(concrete_db, "value"):
+            concrete_db = concrete_db.value
         # Create custom reinforcement rates dictionary
         custom_reinforcement_rates = {
             "Grade Beam": function_inputs.reinforcement_grade_beam,
