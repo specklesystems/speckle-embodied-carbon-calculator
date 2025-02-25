@@ -34,6 +34,7 @@ class MaterialAliasService:
                 "345 MPa",
                 "350W",
                 "350W(1)",
+                "Steel ASTM A500B-42",
             ],
             "hss": ["hollow structural section", "hollow section", "tube"],
             "plate": ["flat plate"],
@@ -66,7 +67,13 @@ class MaterialAliasService:
         # Special case handling
         if any(
             steel_name in name
-            for steel_name in ["345 mpa", "350w", "steel 345", "default_steel"]
+            for steel_name in [
+                "345 mpa",
+                "350w",
+                "steel 345",
+                "default_steel",
+                "Steel ASTM A500B-42",
+            ]
         ):
             return "Hot Rolled"  # Map all these variants to Hot Rolled steel
 
