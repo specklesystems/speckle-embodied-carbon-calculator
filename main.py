@@ -24,7 +24,6 @@ def create_one_of_enum(enum_cls):
     return [{"const": item.value, "title": item.name} for item in enum_cls]
 
 
-# TODO: Function inputs
 class FunctionInputs(AutomateBase):
     """User-defined function inputs."""
 
@@ -40,6 +39,86 @@ class FunctionInputs(AutomateBase):
         title="Timber Database",
         description="Database used for the GWP of timber objects",
         json_schema_extra={"oneOf": create_one_of_enum(TimberDatabase)},
+    )
+
+    concrete_database: str = Field(
+        default=ConcreteDatabase.GUL_LOW_AIR.value,
+        title="Concrete Database",
+        description="Database used for the GWP of concrete objects",
+        json_schema_extra={"oneOf": create_one_of_enum(ConcreteDatabase)},
+    )
+
+    country: str = Field(
+        default="CAN",
+        title="Country",
+        description="Country for concrete strength units (CAN: MPa, USA: PSI)",
+        json_schema_extra={
+            "oneOf": [
+                {"const": "CAN", "title": "Canada (MPa)"},
+                {"const": "USA", "title": "United States (PSI)"},
+            ]
+        },
+    )
+
+    # Add reinforcement rates based on Image 1
+    reinforcement_grade_beam: float = Field(
+        default=100.0,
+        title="Grade Beam Reinforcement (kg/m³)",
+    )
+
+    reinforcement_slab_on_grade: float = Field(
+        default=85.0,
+        title="Slab on Grade Reinforcement (kg/m³)",
+    )
+
+    reinforcement_pad_footing: float = Field(
+        default=100.0,
+        title="Pad Footing Reinforcement (kg/m³)",
+    )
+
+    reinforcement_pile: float = Field(
+        default=100.0,
+        title="Pile Reinforcement (kg/m³)",
+    )
+
+    reinforcement_strip_footing: float = Field(
+        default=100.0,
+        title="Strip Footing Reinforcement (kg/m³)",
+    )
+
+    reinforcement_pile_cap: float = Field(
+        default=100.0,
+        title="Pile Cap Reinforcement (kg/m³)",
+    )
+
+    reinforcement_gravity_wall: float = Field(
+        default=150.0,
+        title="Gravity Wall Reinforcement (kg/m³)",
+    )
+
+    reinforcement_column: float = Field(
+        default=450.0,
+        title="Column Reinforcement (kg/m³)",
+    )
+
+    reinforcement_shear_wall: float = Field(
+        default=150.0,
+        title="Shear Wall Reinforcement (kg/m³)",
+    )
+
+    reinforcement_concrete_slab: float = Field(
+        default=120.0,
+        title="Concrete Slab Reinforcement (kg/m³)",
+    )
+
+    reinforcement_beam: float = Field(
+        default=220.0,
+        title="Beam Reinforcement (kg/m³)",
+    )
+
+    reinforcement_topping_slab: float = Field(
+        default=85.0,
+        title="Topping Slab Reinforcement (kg/m³)",
     )
 
 
