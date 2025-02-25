@@ -131,23 +131,24 @@ class RevitCarbonAnalyzer:
 
     def __init__(
         self,
-        steel_database: str,
-        timber_database: str,
-        concrete_database: str,
-        country: str,
-        reinforcement_rates: Dict[str, float],
+        material_processor: MaterialProcessor,
+        element_processor: ElementProcessor,
+        carbon_calculator: CarbonCalculator,
+        logger: Logging,
     ):
-        self.material_processor = MaterialProcessor()
-        self.element_processor = ElementProcessor(
-            material_processor=self.material_processor, logger=Logging()
-        )
-        self.carbon_calculator = CarbonCalculator(
-            steel_database=steel_database,
-            timber_database=timber_database,
-            concrete_database=concrete_database,
-            country=country,
-            custom_reinforcement_rates=reinforcement_rates,
-        )
+        """
+        Initialize with injected dependencies.
+
+        Args:
+            material_processor: Service for processing raw materials
+            element_processor: Service for processing Revit elements
+            carbon_calculator: Service for calculating carbon emissions
+            logger: Logging service
+        """
+        self.material_processor = material_processor
+        self.element_processor = element_processor
+        self.carbon_calculator = carbon_calculator
+        self.logger = logger
 
     def analyze_model(self, model_root) -> dict:
         """Analyze a Revit model for carbon emissions."""
@@ -292,13 +293,26 @@ def automate_function(
             "Topping Slabs": function_inputs.reinforcement_topping_slab,
         }
 
-        # Initialize analyzer
-        analyzer = RevitCarbonAnalyzer(
+        # Create dependencies with proper DI
+        logger = Logging()
+        material_processor = MaterialProcessor()
+        element_processor = ElementProcessor(
+            material_processor=material_processor, logger=logger
+        )
+        carbon_calculator = CarbonCalculator(
             steel_database=steel_db,
             timber_database=timber_db,
             concrete_database=concrete_db,
             country=country,
-            reinforcement_rates=custom_reinforcement_rates,
+            custom_reinforcement_rates=custom_reinforcement_rates,
+        )
+
+        # Initialize analyzer with injected dependencies
+        analyzer = RevitCarbonAnalyzer(
+            material_processor=material_processor,
+            element_processor=element_processor,
+            carbon_calculator=carbon_calculator,
+            logger=logger,
         )
 
         # Get commit root
