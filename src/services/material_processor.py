@@ -14,9 +14,7 @@ class MaterialProcessor:
         properties = MaterialProperties(
             name=raw_material["materialName"],
             volume=raw_material["volume"]["value"],
-            density=raw_material.get("density", {}).get(
-                "value"
-            ),  # Using .get() for optional fields
+            density=raw_material.get("density", {}).get("value"),
             structural_asset=raw_material.get("structuralAsset"),
             compressive_strength=raw_material.get("compressiveStrength", {}).get(
                 "value"

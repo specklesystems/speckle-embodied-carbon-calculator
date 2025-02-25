@@ -1,5 +1,6 @@
 from collections import defaultdict
 
+from pydantic import Field
 from speckle_automate import (
     AutomateBase,
     AutomationContext,
@@ -8,28 +9,56 @@ from speckle_automate import (
 
 from typing import Dict, Generator, Any, List
 
+from src.domain.carbon.databases.enums import SteelDatabase, TimberDatabase
 from src.infrastructure.logging import Logging
 from src.services.carbon_calculator import CarbonCalculator
 from src.services.element_processor import ElementProcessor
 from src.services.material_processor import MaterialProcessor
 
 
+def create_one_of_enum(enum_cls):
+    """
+    Helper function to create a JSON schema from an Enum class.
+    This is used for generating user input forms in the UI.
+    """
+    return [{"const": item.value, "title": item.name} for item in enum_cls]
+
+
 # TODO: Function inputs
 class FunctionInputs(AutomateBase):
     """User-defined function inputs."""
 
-    # wood_supplier: WoodSupplier = WoodSupplier.INDUSTRY_AVERAGE
+    steel_database: str = Field(
+        default=SteelDatabase.Type350MPa,
+        title="Steel Database",
+        description="Database used for the GWP of steel objects",
+        json_schema_extra={"oneOf": create_one_of_enum(SteelDatabase)},
+    )
+
+    timber_database: str = Field(
+        default=TimberDatabase.Binderholz2019,
+        title="Timber Database",
+        description="Database used for the GWP of timber objects",
+        json_schema_extra={"oneOf": create_one_of_enum(TimberDatabase)},
+    )
 
 
 class RevitCarbonAnalyzer:
     """Main application for analyzing carbon in Revit models."""
 
-    def __init__(self):
+    def __init__(self, steel_database: str, timber_database: str):
         self.material_processor = MaterialProcessor()
         self.element_processor = ElementProcessor(
             material_processor=self.material_processor, logger=Logging()
         )
-        self.carbon_calculator = CarbonCalculator()
+        self.carbon_calculator = CarbonCalculator(
+            steel_database=steel_database.value
+            if isinstance(steel_database, SteelDatabase)
+            else steel_database,
+            timber_database=timber_database.value
+            if isinstance(timber_database, SteelDatabase)
+            else timber_database,
+        )
 
     def analyze_model(self, model_root) -> dict:
         """Analyze a Revit model for carbon emissions."""
@@ -38,19 +67,13 @@ class RevitCarbonAnalyzer:
             "skipped_elements": [],
             "errors": [],
             "total_carbon": 0.0,
+            "missing_factors": {"timber": [], "steel": []},
         }
 
-        # Debug: Print number of elements found
-        element_count = 0
         # Process each element
         for element in self._iterate_elements(model_root):
-            element_count += 1
             try:
-                print(
-                    f"Processing element {getattr(element, 'id', 'unknown')}"
-                )  # Debug
                 element_result = self._process_single_element(element)
-                print(f"Result status: {element_result['status']}")  # Debug
                 if element_result["status"] == "processed":
                     results["processed_elements"].append(element_result)
                     results["total_carbon"] += element_result["total_carbon"]
@@ -59,7 +82,6 @@ class RevitCarbonAnalyzer:
                 else:
                     results["errors"].append(element_result)
             except Exception as e:
-                print(f"Error processing element: {str(e)}")  # Debug
                 results["errors"].append(
                     {
                         "id": getattr(element, "id", "unknown"),
@@ -68,7 +90,22 @@ class RevitCarbonAnalyzer:
                     }
                 )
 
-        print(f"Total elements found: {element_count}")  # Debug
+            # Get missing factors
+        missing_timber, missing_steel = self.carbon_calculator.get_missing_factors()
+        results["missing_factors"]["timber"] = missing_timber
+        results["missing_factors"]["steel"] = missing_steel
+
+        # Log missing factors
+        if missing_timber:
+            print(f"Missing timber factors ({len(missing_timber)}):")
+            for item in missing_timber:
+                print(f"  - {item}")
+
+        if missing_steel:
+            print(f"Missing steel factors ({len(missing_steel)}):")
+            for item in missing_steel:
+                print(f"  - {item}")
+
         return results
 
     def _process_single_element(self, element: Dict) -> Dict:
@@ -127,8 +164,21 @@ def automate_function(
 ) -> None:
     """Program entry point."""
     try:
+        # Get string values from enums if needed
+        steel_db = function_inputs.steel_database
+        timber_db = function_inputs.timber_database
+
+        # Ensure we're working with string values
+        if hasattr(steel_db, "value"):
+            steel_db = steel_db.value
+        if hasattr(timber_db, "value"):
+            timber_db = timber_db.value
+
         # Initialize analyzer
-        analyzer = RevitCarbonAnalyzer()
+        analyzer = RevitCarbonAnalyzer(
+            steel_database=steel_db,
+            timber_database=timber_db,
+        )
 
         # Get commit root
         version_id = automate_context.automation_run_data.triggers[0].payload.version_id
@@ -150,11 +200,45 @@ def automate_function(
         # Process results
         _process_automation_results(automate_context, results)
 
-        # Mark success
-        automate_context.mark_run_success(
-            f"Analysis complete. Processed {len(results['processed_elements'])} elements. "
-            f"Total carbon: {results['total_carbon']:.2f} kgCO2e"
+        # Prepare detailed success message
+        success_message = (
+            f"🚀 Analysis complete.\n\n\tProcessed:\t\t{len(results['processed_elements'])} elements.\n\t"
+            f"Total carbon:\t{results['total_carbon']:.2f} kgCO₂e\n"
         )
+
+        # Add missing factors to message if any
+        missing_timber = results["missing_factors"]["timber"]
+        missing_steel = results["missing_factors"]["steel"]
+
+        if missing_timber or missing_steel:
+            success_message += "\nMissing emission factors detected:\n"
+
+            if missing_timber:
+                success_message += (
+                    f"- Timber ({len(missing_timber)}): {', '.join(missing_timber[:5])}"
+                )
+                if len(missing_timber) > 5:
+                    success_message += f" and {len(missing_timber) - 5} more"
+                success_message += "\n"
+
+            if missing_steel:
+                success_message += (
+                    f"- Steel ({len(missing_steel)}): {', '.join(missing_steel[:5])}"
+                )
+                if len(missing_steel) > 5:
+                    success_message += f" and {len(missing_steel) - 5} more"
+                success_message += "\n"
+
+            success_message += "\nThese materials were assigned zero carbon. Consider updating the database."
+
+        else:
+            success_message += (
+                "\nNOTE: All materials successfully matched with emission factors."
+                "complete."
+            )
+
+        # Mark success with detailed message
+        automate_context.mark_run_success(success_message)
 
     except Exception as e:
         automate_context.mark_run_failed(f"Analysis failed: {str(e)}")

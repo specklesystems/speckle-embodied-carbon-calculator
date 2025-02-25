@@ -48,30 +48,20 @@ class ElementProcessor:
 
     def _is_valid_element(self, element) -> bool:
         """Validate if element should be processed."""
-        element_id = getattr(element, "id", "unknown")
-
-        # Debug logs
-        print(f"\nValidating element {element_id}")
-        print(f"speckle_type: {getattr(element, 'speckle_type', None)}")
-        print(f"has properties: {hasattr(element, 'properties')}")
 
         # Skip geometry elements
         if getattr(element, "speckle_type", None) in self.SKIP_TYPES:
-            print("Skipped: geometry element")
             return False
 
         # Must have properties
         if not hasattr(element, "properties"):
-            print("Skipped: no properties")
             return False
 
         # Must have material quantities
         properties = getattr(element, "properties")
-        if "Material Quantities" not in properties:  # Changed from hasattr to dictionary access
-            print("Skipped: no Material Quantities")
+        if "Material Quantities" not in properties:
             return False
 
-        print(f"Material Quantities found: {properties['Material Quantities']}")
         return True
 
     @staticmethod
