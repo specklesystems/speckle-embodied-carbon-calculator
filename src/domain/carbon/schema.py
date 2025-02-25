@@ -14,14 +14,3 @@ class EmissionFactor:
     valid_until: Optional[str] = None
     manufacturer: Optional[str] = None
     plant_location: Optional[str] = None
-
-
-@dataclass
-class CarbonResult:
-    """Result of a carbon calculation"""
-
-    material_name: str
-    emission_factor: EmissionFactor
-    quantity: float
-    total_carbon: float
-    category: str
