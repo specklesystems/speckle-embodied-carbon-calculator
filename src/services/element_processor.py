@@ -1,4 +1,4 @@
-from typing import Optional, List
+from typing import Optional, List, Union
 
 from src.domain.types import BuildingElement, ElementCategory, Material
 from src.infrastructure.logging import Logging
@@ -14,6 +14,8 @@ class ElementProcessor:
         "Objects.Geometry.Circle",
     ]
 
+    SKIP_FAMILIES = ["Grid", "JS_SF_Centerline Only"]
+
     def __init__(self, material_processor: MaterialProcessor, logger: Logging):
         self.material_processor = material_processor
         self.logger = logger
@@ -21,9 +23,13 @@ class ElementProcessor:
     def process_element(self, element: dict) -> Optional[BuildingElement]:
         """Process a single Revit element."""
         try:
+            # Skip basic geometric types
+            if self.is_skipped(element):
+                return None  # Skipped elements return None
+
             # Basic validation
-            if not self._is_valid_element(element):
-                return None
+            if not self.is_valid_element(element):
+                return None  # Invalid elements also return None, but we'll handle them differently
 
             # Extract basic properties
             element_id = getattr(element, "id", "unknown")
@@ -42,16 +48,21 @@ class ElementProcessor:
             self.logger.log_error(
                 getattr(element, "id"),
                 "Element Processing",
-                f"Error processing element {getattr(element, "id")}: {str(e)}",
+                f"Error processing element {getattr(element, 'id')}: {str(e)}",
             )
             return None
 
-    def _is_valid_element(self, element) -> bool:
-        """Validate if element should be processed."""
-
-        # Skip geometry elements
+    def is_skipped(self, element) -> bool:
+        """Skipping non-model objects."""
         if getattr(element, "speckle_type", None) in self.SKIP_TYPES:
-            return False
+            return True
+        if getattr(element, "family", None) in self.SKIP_FAMILIES:
+            return True
+        return False
+
+    @staticmethod
+    def is_valid_element(element) -> bool:
+        """Validate if element should be processed."""
 
         # Must have properties
         if not hasattr(element, "properties"):
