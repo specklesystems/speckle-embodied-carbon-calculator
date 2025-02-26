@@ -14,6 +14,7 @@ from src.domain.carbon.databases.enums import (
     TimberDatabase,
     ConcreteDatabase,
 )
+from src.domain.types import BuildingElement
 from src.infrastructure.logging import Logging
 from src.services.carbon_calculator import CarbonCalculator
 from src.services.element_processor import ElementProcessor
@@ -155,6 +156,7 @@ class RevitCarbonAnalyzer:
         results = {
             "processed_elements": [],
             "skipped_elements": [],
+            "warning_elements": [],  # For invalid elements
             "errors": [],
             "total_carbon": 0.0,
             "missing_factors": {"timber": [], "steel": [], "concrete": []},
@@ -169,6 +171,8 @@ class RevitCarbonAnalyzer:
                     results["total_carbon"] += element_result["total_carbon"]
                 elif element_result["status"] == "skipped":
                     results["skipped_elements"].append(element_result)
+                elif element_result["status"] == "warning":
+                    results["warning_elements"].append(element_result)
                 else:
                     results["errors"].append(element_result)
             except Exception as e:
@@ -212,13 +216,29 @@ class RevitCarbonAnalyzer:
         """Process a single element and return its results."""
         element_id = getattr(element, "id", "unknown")
 
+        # Check if this element should be skipped
+        if self.element_processor.is_skipped(element):
+            return {
+                "id": element_id,
+                "status": "skipped",
+                "reason": "Element type or family in skip list",
+            }
+
+        # Check if element is valid - mark as warning if not
+        if not self.element_processor.is_valid_element(element):
+            return {
+                "id": element_id,
+                "status": "warning",
+                "reason": "Missing required properties",
+            }
+
         # Process element
         processed_element = self.element_processor.process_element(element)
         if not processed_element:
             return {
                 "id": element_id,
-                "status": "skipped",
-                "reason": "Invalid element structure",
+                "status": "error",
+                "reason": "Element processing failed",
             }
 
         # Calculate carbon
@@ -341,7 +361,7 @@ class RevitCarbonAnalyzer:
                 "id": element_id,
                 "status": "processed",
                 "level": processed_element.level,
-                "category": processed_element.category.value,
+                "category": processed_element.category,
                 "materials": [
                     {
                         "name": m.properties.name,
@@ -447,10 +467,27 @@ def automate_function(
         # Process results
         _process_automation_results(automate_context, results)
 
+        # Calculate success percentage (successful / (successful + errors))
+        total_processed = (
+            len(results["processed_elements"])
+            + len(results["errors"])
+            + len(results["warning_elements"])
+        )
+        success_percentage = (
+            (len(results["processed_elements"]) / total_processed * 100)
+            if total_processed > 0
+            else 100
+        )
+
         # Prepare detailed success message
         success_message = (
-            f"🚀 Analysis complete.\n\n\tProcessed:\t\t{len(results['processed_elements'])} elements\n\t"
-            f"Total carbon:\t{results['total_carbon']:.2f} kgCO₂e\n"
+            f"🚀 Analysis complete.\n\n"
+            f"\tProcessed:\t\t{results['success_count']} elements\n"
+            f"\tSkipped:\t\t\t{results['skipped_count']} elements\n"
+            f"\tWarnings:\t\t{results['warning_count']} elements\n"
+            f"\tErrors:\t\t\t\t{results['error_count']} elements\n"
+            f"\tSuccess rate:\t{success_percentage:.1f}%\n\n"
+            f"\tTotal carbon:\t{results['total_carbon']:.0f} kgCO₂e\n"
         )
 
         # Add missing factors to message if any
@@ -484,9 +521,9 @@ def automate_function(
             )
 
         # Upload mutated model
-        automate_context.create_new_version_in_project(
-            model_root, f"{commit_root.branchName}_embodied_carbon"
-        )
+        # automate_context.create_new_version_in_project(
+        #    model_root, f"{commit_root.branchName}_embodied_carbon"
+        # )
 
         # Mark success with detailed message
         automate_context.mark_run_success(success_message)
@@ -506,44 +543,45 @@ def _process_automation_results(
     automate_context: AutomationContext, results: dict
 ) -> None:
     """Process results and attach them to the automation context."""
-    # Group results by category
-    successes: Dict[str, List[str]] = defaultdict(list)
-    warnings: Dict[str, List[str]] = defaultdict(list)
-    errors: Dict[str, List[str]] = defaultdict(list)
+    # Process each category and attach to objects
 
-    # Group successful elements
-    for element in results["processed_elements"]:
-        successes["Carbon Analysis"].append(element["id"])
-
-    # Group skipped elements
-    for element in results["skipped_elements"]:
-        warnings["Skipped Elements"].append(element["id"])
-
-    # Group errors
-    for element in results["errors"]:
-        errors["Processing Errors"].append(element["id"])
-
-    # Attach grouped results
-    for category, object_ids in successes.items():
+    # Successes
+    if results["processed_elements"]:
         automate_context.attach_success_to_objects(
-            category=category,
-            object_ids=object_ids,
+            category="Carbon Analysis",
+            object_ids=[e["id"] for e in results["processed_elements"]],
             message="Carbon calculations completed successfully for these elements!",
         )
 
-    for category, object_ids in warnings.items():
-        automate_context.attach_warning_to_objects(
-            category=category,
-            object_ids=object_ids,
-            message="Elements requiring careful review.",
+    # Skipped elements (info)
+    if results["skipped_elements"]:
+        automate_context.attach_info_to_objects(
+            category="Skipped Elements",
+            object_ids=[e["id"] for e in results["skipped_elements"]],
+            message="Elements that were intentionally skipped.",
         )
 
-    for category, object_ids in errors.items():
+    # Warnings
+    if results["warning_elements"]:
+        automate_context.attach_warning_to_objects(
+            category="Missing Material Data",
+            object_ids=[e["id"] for e in results["warning_elements"]],
+            message="Elements missing material data required for carbon calculation.",
+        )
+
+    # Errors
+    if results["errors"]:
         automate_context.attach_error_to_objects(
-            category=category,
-            object_ids=object_ids,
+            category="Processing Errors",
+            object_ids=[e["id"] for e in results["errors"]],
             message="Failure processing the following elements.",
         )
+
+    # Add statistics to results for use in success message
+    results["success_count"] = len(results["processed_elements"])
+    results["warning_count"] = len(results["warning_elements"])
+    results["skipped_count"] = len(results["skipped_elements"])
+    results["error_count"] = len(results["errors"])
 
 
 if __name__ == "__main__":
