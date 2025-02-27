@@ -1,7 +1,4 @@
-from collections import defaultdict
-
 from pydantic import Field
-from reportlab.lib.pagesizes import letter
 from reportlab.platypus import SimpleDocTemplate
 from reportlab.platypus.tables import Table
 from reportlab.lib.pagesizes import letter
@@ -11,14 +8,13 @@ from speckle_automate import (
     execute_automate_function,
 )
 
-from typing import Dict, Generator, Any, List
+from typing import Dict, Generator, Any
 
 from src.domain.carbon.databases.enums import (
     SteelDatabase,
     TimberDatabase,
     ConcreteDatabase,
 )
-from src.domain.types import BuildingElement
 from src.infrastructure.logging import Logging
 from src.services.carbon_calculator import CarbonCalculator
 from src.services.element_processor import ElementProcessor
@@ -167,7 +163,7 @@ class RevitCarbonAnalyzer:
         }
 
         # Process each element
-        for element in self._iterate_elements(model_root):
+        for element in self.iterate_elements(model_root):
             try:
                 element_result = self._process_single_element(element)
                 if element_result["status"] == "processed":
@@ -385,7 +381,7 @@ class RevitCarbonAnalyzer:
             }
 
     @staticmethod
-    def _iterate_elements(model_data) -> Generator[Dict, None, None]:
+    def iterate_elements(model_data) -> Generator[Dict, None, None]:
         """Iterate through all elements in the model."""
         for level in getattr(model_data, "elements", []):
             for type_group in getattr(level, "elements", []):
@@ -475,20 +471,25 @@ def automate_function(
         file_name = "report.pdf"
         doc = SimpleDocTemplate(file_name, pagesize=letter)
 
-        pdf_data = [
-            ["Element ID", "Material", "Embodied Carbon"]
-        ]
-        for element in RevitCarbonAnalyzer._iterate_elements(model_root):
+        pdf_data = [["Element ID", "Material", "Embodied Carbon"]]
+        for element in RevitCarbonAnalyzer.iterate_elements(model_root):
             if hasattr(element, "properties"):
                 element_properties = element["properties"]
                 element_id = element_properties["elementId"]
                 if "Embodied Carbon Calculation" in element_properties:
-                    for key, value in element_properties["Embodied Carbon Calculation"].items():
-                        pdf_data.append([
-                            element_id,
-                            key,
-                            "{:0.2f} {}".format(value["embodied carbon"]["value"], value["embodied carbon"]["units"])
-                        ])
+                    for key, value in element_properties[
+                        "Embodied Carbon Calculation"
+                    ].items():
+                        pdf_data.append(
+                            [
+                                element_id,
+                                key,
+                                "{:0.2f} {}".format(
+                                    value["embodied carbon"]["value"],
+                                    value["embodied carbon"]["units"],
+                                ),
+                            ]
+                        )
 
         table = Table(pdf_data)
         doc.build([table])
