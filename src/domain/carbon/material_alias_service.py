@@ -12,9 +12,27 @@ class MaterialAliasService:
                 "glue laminated timber",
                 "glued laminated timber",
                 "glulam beam",
+                "GL36h",
+                "GL36h(1)",
+                "GL24h",
+                "GL28h",
+                "GL30h",
+                "GL32h",
+                "GL36c",
+                "GL36c(1)",
+                "GL24c",
+                "GL28c",
+                "GL30c",
+                "GL32c",
+                "softwood",
             ],
             "lvl": ["laminated veneer lumber"],
-            "softwood lumber": ["dimensional lumber", "sawn lumber", "softwood"],
+            "softwood lumber": [
+                "dimensional lumber",
+                "sawn lumber",
+                "softwood",
+                "FE_Wood - Dimensional Lumber",
+            ],
             "softwood plywood": ["plywood", "softwood ply"],
             "oriented strand board": ["osb", "osb board"],
             "glt/nlt/dlt": [
@@ -41,7 +59,7 @@ class MaterialAliasService:
             "rebar": ["reinforcing bar", "reinforcement"],
             "owsj": ["open web steel joist", "steel joist"],
             "fasteners": ["bolts", "screws", "nails", "rivets"],
-            "metal deck": ["deck", "decking"],
+            "metal deck": ["deck", "decking", "metal - decking"],
         }
 
         self._concrete_aliases = {

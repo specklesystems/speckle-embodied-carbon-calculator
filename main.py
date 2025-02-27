@@ -156,7 +156,7 @@ class RevitCarbonAnalyzer:
         results = {
             "processed_elements": [],
             "skipped_elements": [],
-            "warning_elements": [],  # For invalid elements
+            "warning_elements": [],
             "errors": [],
             "total_carbon": 0.0,
             "missing_factors": {"timber": [], "steel": [], "concrete": []},
@@ -243,7 +243,19 @@ class RevitCarbonAnalyzer:
 
         # Calculate carbon
         try:
-            carbon_results = self.carbon_calculator.calculate_carbon(processed_element)
+            carbon_results, material_errors = self.carbon_calculator.calculate_carbon(
+                processed_element
+            )
+
+            if not carbon_results:
+                error_details = "; ".join(
+                    [f"{e['material']}: {e['error']}" for e in material_errors]
+                )
+                return {
+                    "id": element_id,
+                    "status": "error",
+                    "reason": f"No carbon could be calculated: {error_details}",
+                }
 
             # Initialize Embodied Carbon Calculation dictionary
             embodied_carbon_data = {}
@@ -265,13 +277,13 @@ class RevitCarbonAnalyzer:
                             "value": result.database,
                             "units": None,
                         },
-                        "ecf": {
-                            "name": "ecf",
+                        "embodiedCarbonFactor": {
+                            "name": "embodiedCarbonFactor",
                             "value": result.factor,
                             "units": "kgCO₂e/m³",
                         },
-                        "embodied carbon": {
-                            "name": "embodied carbon",
+                        "embodiedCarbon": {
+                            "name": "embodiedCarbon",
                             "value": result.total_carbon,
                             "units": "kgCO₂e",
                         },
@@ -279,8 +291,8 @@ class RevitCarbonAnalyzer:
                 elif result.category == "Concrete":
                     # For concrete (include both concrete and reinforcement)
                     material_data = {
-                        "volume": {
-                            "name": "volume",
+                        "concreteVolume": {
+                            "name": "concreteVolume",
                             "value": result.concrete_volume,
                             "units": "m³",
                         },
@@ -289,38 +301,38 @@ class RevitCarbonAnalyzer:
                             "value": result.database,
                             "units": None,
                         },
-                        "ecf": {
-                            "name": "ecf",
+                        "concreteEmbodiedCarbonFactor": {
+                            "name": "concreteEmbodiedCarbonFactor",
                             "value": result.factor,
                             "units": "kgCO₂e/m³",
                         },
-                        "concrete carbon": {
-                            "name": "concrete carbon",
+                        "concreteEmbodiedCarbon": {
+                            "name": "concreteEmbodiedCarbon",
                             "value": result.concrete_carbon,
                             "units": "kgCO₂e",
                         },
-                        "reinforcement mass": {
-                            "name": "reinforcement mass",
+                        "reinforcementMass": {
+                            "name": "reinforcementMass",
                             "value": result.reinforcement_mass,
                             "units": "kg",
                         },
-                        "reinforcement rate": {
-                            "name": "reinforcement rate",
+                        "reinforcementRate": {
+                            "name": "reinforcementRate",
                             "value": result.reinforcement_rate,
                             "units": "kg/m³",
                         },
-                        "reinforcement ecf": {
-                            "name": "reinforcement ecf",
+                        "reinforcementEmbodiedCarbonFactor": {
+                            "name": "reinforcementEmbodiedCarbonFactor",
                             "value": result.reinforcement_factor,
                             "units": "kgCO₂e/kg",
                         },
-                        "reinforcement carbon": {
-                            "name": "reinforcement carbon",
+                        "reinforcementEmbodiedCarbon": {
+                            "name": "reinforcementEmbodiedCarbon",
                             "value": result.reinforcement_carbon,
                             "units": "kgCO₂e",
                         },
-                        "embodied carbon": {
-                            "name": "embodied carbon",
+                        "embodiedCarbon": {
+                            "name": "embodiedCarbon",
                             "value": result.total_carbon,
                             "units": "kgCO₂e",
                         },
@@ -338,13 +350,13 @@ class RevitCarbonAnalyzer:
                             "value": result.database,
                             "units": None,
                         },
-                        "ecf": {
-                            "name": "ecf",
+                        "embodiedCarbonFactor": {
+                            "name": "embodiedCarbonFactor",
                             "value": result.factor,
                             "units": "kgCO₂e/kg",
                         },
-                        "embodied carbon": {
-                            "name": "embodied carbon",
+                        "embodiedCarbon": {
+                            "name": "embodiedCarbon",
                             "value": result.total_carbon,
                             "units": "kgCO₂e",
                         },
@@ -357,9 +369,9 @@ class RevitCarbonAnalyzer:
             if hasattr(element, "properties"):
                 element.properties["Embodied Carbon Calculation"] = embodied_carbon_data
 
-            return {
+            element_result = {
                 "id": element_id,
-                "status": "processed",
+                "status": "processed" if not material_errors else "warning",
                 "level": processed_element.level,
                 "category": processed_element.category,
                 "materials": [
@@ -373,11 +385,21 @@ class RevitCarbonAnalyzer:
                 "carbon_results": carbon_results,
                 "total_carbon": sum(r.total_carbon for r in carbon_results.values()),
             }
+
+            # If there were material errors, include them in the result
+            if material_errors:
+                element_result["material_errors"] = material_errors
+                element_result[
+                    "reason"
+                ] = f"Issues with {len(material_errors)} materials"
+
+            return element_result
+
         except Exception as e:
             return {
                 "id": element_id,
                 "status": "error",
-                "error": f"Carbon calculation failed: {str(e)}",
+                "reason": f"Carbon calculation failed: {str(e)}",
             }
 
     @staticmethod
@@ -485,8 +507,8 @@ def automate_function(
                                 element_id,
                                 key,
                                 "{:0.2f} {}".format(
-                                    value["embodied carbon"]["value"],
-                                    value["embodied carbon"]["units"],
+                                    value["embodiedCarbon"]["value"],
+                                    value["embodiedCarbon"]["units"],
                                 ),
                             ]
                         )
@@ -550,9 +572,9 @@ def automate_function(
             )
 
         # Upload mutated model
-        # automate_context.create_new_version_in_project(
-        #    model_root, f"{commit_root.branchName}_embodied_carbon"
-        # )
+        automate_context.create_new_version_in_project(
+            model_root, f"{commit_root.branchName}_embodied_carbon"
+        )
 
         # Mark success with detailed message
         automate_context.mark_run_success(success_message)
@@ -574,10 +596,21 @@ def _process_automation_results(
     """Process results and attach them to the automation context."""
     # Process each category and attach to objects
 
-    # Successes
+    # Successes with gradient metadata
     if results["processed_elements"]:
+        # Create a dictionary mapping element IDs to their total carbon values
+        embodied_carbon_values = {}
+
+        # Extract the total carbon for each element
+        for element in results["processed_elements"]:
+            element_id = element["id"]
+            # The total carbon is already calculated and stored in each element result
+            total_carbon = element["total_carbon"]
+            embodied_carbon_values[element_id] = {"gradientValue": total_carbon}
+
         automate_context.attach_success_to_objects(
             category="Carbon Analysis",
+            metadata={"gradient": True, "gradientValues": embodied_carbon_values},
             object_ids=[e["id"] for e in results["processed_elements"]],
             message="Carbon calculations completed successfully for these elements!",
         )

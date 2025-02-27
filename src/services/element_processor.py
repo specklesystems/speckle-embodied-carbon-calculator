@@ -14,7 +14,7 @@ class ElementProcessor:
         "Objects.Geometry.Circle",
     ]
 
-    SKIP_FAMILIES = ["Grid", "JS_SF_Centerline Only"]
+    SKIP_FAMILIES = ["Grid", "JS_SF_Centerline Only", "none"]
 
     def __init__(self, material_processor: MaterialProcessor, logger: Logging):
         self.material_processor = material_processor
@@ -108,7 +108,7 @@ class ElementProcessor:
         properties = getattr(element, "properties")
         material_quantities = properties["Material Quantities"]
 
-        for material_data in material_quantities.values():  # Added .values()
+        for material_data in material_quantities.values():
             try:
                 material = self.material_processor.process_material(material_data)
                 materials.append(material)

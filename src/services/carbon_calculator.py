@@ -45,9 +45,12 @@ class CarbonCalculator:
         self._missing_steel_factors = set()
         self._missing_concrete_factors = set()
 
-    def calculate_carbon(self, element: BuildingElement) -> Dict[str, CarbonResult]:
-        """Calculate carbon emissions for an element's materials."""
+    def calculate_carbon(
+        self, element: BuildingElement
+    ) -> tuple[Dict[str, CarbonResult], List[Dict[str, str]]]:
+        """Calculate carbon emissions for an element's materials and return results and errors."""
         results = {}
+        errors = []
 
         for material in element.materials:
             try:
@@ -77,11 +80,13 @@ class CarbonCalculator:
                         )
                         self._missing_concrete_factors.add(f"{strength}_{element_type}")
 
-                print(
-                    f"Error calculating carbon for {material.properties.name}: {str(e)}"
+                # Store error with material name instead of just printing
+                error_msg = (
+                    f"No emission factor found for {material.properties.name}: {str(e)}"
                 )
+                errors.append({"material": material.properties.name, "error": str(e)})
 
-        return results
+        return results, errors
 
     def _calculate_material_carbon(
         self, material: Material, element_category: Optional[ElementCategory] = None
@@ -102,8 +107,6 @@ class CarbonCalculator:
 
     def _calculate_metal_carbon(self, material: Material) -> CarbonResult:
         """Calculate carbon emissions for metal."""
-        if not material.mass:
-            raise ValueError("Mass required for metal carbon calculation")
 
         # Get factor from cache or registry
         if material.grade not in self._steel_factors_cache:

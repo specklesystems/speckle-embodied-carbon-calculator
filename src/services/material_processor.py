@@ -35,9 +35,13 @@ class MaterialProcessor:
         """Process materials with structural assets."""
         if "concrete" in props.name.lower():
             return self._process_concrete(props)
-        elif "steel" in props.name.lower():
+        elif "steel" in props.name.lower() or "metal" in props.name.lower():
             return self._process_steel(props)
-        elif "clt" in props.name.lower() or "timber" in props.name.lower():
+        elif (
+            "clt" in props.name.lower()
+            or "timber" in props.name.lower()
+            or "glulam" in props.name.lower()
+        ):
             return Material(type=MaterialType.WOOD, properties=props)
         else:
             raise ValueError(f"Unknown high-grade material: {props.name}")
@@ -60,7 +64,7 @@ class MaterialProcessor:
                 mass=mass,
                 grade="default_steel",
             )
-        elif "clt" in name or "timber" in name:
+        elif "clt" in name or "timber" in name or "wood" in name:
             return Material(type=MaterialType.WOOD, properties=props)
         else:
             raise ValueError(f"Unknown material type: {props.name}")
