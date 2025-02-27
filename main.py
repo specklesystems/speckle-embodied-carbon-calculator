@@ -1,6 +1,10 @@
 from collections import defaultdict
 
 from pydantic import Field
+from reportlab.lib.pagesizes import letter
+from reportlab.platypus import SimpleDocTemplate
+from reportlab.platypus.tables import Table
+from reportlab.lib.pagesizes import letter
 from speckle_automate import (
     AutomateBase,
     AutomationContext,
@@ -466,6 +470,30 @@ def automate_function(
 
         # Process results
         _process_automation_results(automate_context, results)
+
+        # Generate PDF
+        file_name = "report.pdf"
+        doc = SimpleDocTemplate(file_name, pagesize=letter)
+
+        pdf_data = [
+            ["Element ID", "Material", "Embodied Carbon"]
+        ]
+        for element in RevitCarbonAnalyzer._iterate_elements(model_root):
+            if hasattr(element, "properties"):
+                element_properties = element["properties"]
+                element_id = element_properties["elementId"]
+                if "Embodied Carbon Calculation" in element_properties:
+                    for key, value in element_properties["Embodied Carbon Calculation"].items():
+                        pdf_data.append([
+                            element_id,
+                            key,
+                            "{:0.2f} {}".format(value["embodied carbon"]["value"], value["embodied carbon"]["units"])
+                        ])
+
+        table = Table(pdf_data)
+        doc.build([table])
+
+        automate_context.store_file_result(file_name)
 
         # Calculate success percentage (successful / (successful + errors))
         total_processed = (
