@@ -2,13 +2,14 @@ from pydantic import Field
 from reportlab.platypus import SimpleDocTemplate
 from reportlab.platypus.tables import Table
 from reportlab.lib.pagesizes import letter
+from specklepy.objects import Base
 from speckle_automate import (
     AutomateBase,
     AutomationContext,
     execute_automate_function,
 )
 
-from typing import Dict, Generator, Any
+from typing import Dict, Generator, Any, Iterable
 
 from src.domain.carbon.databases.enums import (
     SteelDatabase,
@@ -403,13 +404,13 @@ class RevitCarbonAnalyzer:
             }
 
     @staticmethod
-    def iterate_elements(model_data) -> Generator[Dict, None, None]:
+    def iterate_elements(base: Base) -> Iterable[Base]:
         """Iterate through all elements in the model."""
-        for level in getattr(model_data, "elements", []):
-            for type_group in getattr(level, "elements", []):
-                for element_group in getattr(type_group, "elements", []):
-                    for element in getattr(element_group, "elements", []):
-                        yield element
+        elements = getattr(base, "elements", getattr(base, "@elements", None))
+        if elements is not None:
+            for element in elements:
+                yield from RevitCarbonAnalyzer.iterate_elements(element)
+        yield base
 
 
 def automate_function(
