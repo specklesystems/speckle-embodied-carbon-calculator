@@ -498,21 +498,24 @@ def automate_function(
         for element in RevitCarbonAnalyzer.iterate_elements(model_root):
             if hasattr(element, "properties"):
                 element_properties = element["properties"]
-                element_id = element_properties["elementId"]
-                if "Embodied Carbon Calculation" in element_properties:
-                    for key, value in element_properties[
-                        "Embodied Carbon Calculation"
-                    ].items():
-                        pdf_data.append(
-                            [
-                                element_id,
-                                key,
-                                "{:0.2f} {}".format(
-                                    value["embodiedCarbon"]["value"],
-                                    value["embodiedCarbon"]["units"],
-                                ),
-                            ]
-                        )
+
+                # elementId became an issue for linked models. don't know why. lazy fix below. hackady-hack
+                if hasattr(element_properties, "elementId"):
+                    element_id = element_properties["elementId"]
+                    if "Embodied Carbon Calculation" in element_properties:
+                        for key, value in element_properties[
+                            "Embodied Carbon Calculation"
+                        ].items():
+                            pdf_data.append(
+                                [
+                                    element_id,
+                                    key,
+                                    "{:0.2f} {}".format(
+                                        value["embodiedCarbon"]["value"],
+                                        value["embodiedCarbon"]["units"],
+                                    ),
+                                ]
+                            )
 
         table = Table(pdf_data)
         doc.build([table])
