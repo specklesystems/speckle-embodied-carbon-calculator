@@ -484,6 +484,14 @@ def automate_function(
             automate_context.mark_run_failed("Model must be from Revit")
             return
 
+        # Validate Next-Gen
+        if not _validate_next_gen(model_root):
+            automate_context.mark_run_failed(
+                "Revit model must be sent using the v3 connector (or adapt the "
+                "automation for v2)."
+            )
+            return
+
         # Run analysis - convert Speckle model to dict for processing
         results = analyzer.analyze_model(model_root)
 
@@ -592,6 +600,13 @@ def _validate_revit_source(commit_root: Any) -> bool:
     """Validate that the model is from Revit."""
     source_app = getattr(commit_root, "sourceApplication", "").lower()
     return source_app.startswith("revit")
+
+
+def _validate_next_gen(model_root: Any) -> bool:
+    """Validate that the model was sent using the v3 connector"""
+    if not getattr(model_root, "version", None) == 3:
+        return False
+    return True
 
 
 def _process_automation_results(
