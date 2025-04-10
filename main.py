@@ -2,13 +2,14 @@ from pydantic import Field
 from reportlab.platypus import SimpleDocTemplate
 from reportlab.platypus.tables import Table
 from reportlab.lib.pagesizes import letter
+from specklepy.objects import Base
 from speckle_automate import (
     AutomateBase,
     AutomationContext,
     execute_automate_function,
 )
 
-from typing import Dict, Generator, Any
+from typing import Dict, Generator, Any, Iterable
 
 from src.domain.carbon.databases.enums import (
     SteelDatabase,
@@ -403,13 +404,13 @@ class RevitCarbonAnalyzer:
             }
 
     @staticmethod
-    def iterate_elements(model_data) -> Generator[Dict, None, None]:
+    def iterate_elements(base: Base) -> Iterable[Base]:
         """Iterate through all elements in the model."""
-        for level in getattr(model_data, "elements", []):
-            for type_group in getattr(level, "elements", []):
-                for element_group in getattr(type_group, "elements", []):
-                    for element in getattr(element_group, "elements", []):
-                        yield element
+        elements = getattr(base, "elements", getattr(base, "@elements", None))
+        if elements is not None:
+            for element in elements:
+                yield from RevitCarbonAnalyzer.iterate_elements(element)
+        yield base
 
 
 def automate_function(
@@ -483,6 +484,14 @@ def automate_function(
             automate_context.mark_run_failed("Model must be from Revit")
             return
 
+        # Validate Next-Gen
+        if not _validate_next_gen(model_root):
+            automate_context.mark_run_failed(
+                "Revit model must be sent using the v3 connector (or adapt the "
+                "automation for v2)."
+            )
+            return
+
         # Run analysis - convert Speckle model to dict for processing
         results = analyzer.analyze_model(model_root)
 
@@ -497,21 +506,24 @@ def automate_function(
         for element in RevitCarbonAnalyzer.iterate_elements(model_root):
             if hasattr(element, "properties"):
                 element_properties = element["properties"]
-                element_id = element_properties["elementId"]
-                if "Embodied Carbon Calculation" in element_properties:
-                    for key, value in element_properties[
-                        "Embodied Carbon Calculation"
-                    ].items():
-                        pdf_data.append(
-                            [
-                                element_id,
-                                key,
-                                "{:0.2f} {}".format(
-                                    value["embodiedCarbon"]["value"],
-                                    value["embodiedCarbon"]["units"],
-                                ),
-                            ]
-                        )
+
+                # elementId became an issue for linked models. don't know why. lazy fix below. hackady-hack
+                if hasattr(element_properties, "elementId"):
+                    element_id = element_properties["elementId"]
+                    if "Embodied Carbon Calculation" in element_properties:
+                        for key, value in element_properties[
+                            "Embodied Carbon Calculation"
+                        ].items():
+                            pdf_data.append(
+                                [
+                                    element_id,
+                                    key,
+                                    "{:0.2f} {}".format(
+                                        value["embodiedCarbon"]["value"],
+                                        value["embodiedCarbon"]["units"],
+                                    ),
+                                ]
+                            )
 
         table = Table(pdf_data)
         doc.build([table])
@@ -588,6 +600,13 @@ def _validate_revit_source(commit_root: Any) -> bool:
     """Validate that the model is from Revit."""
     source_app = getattr(commit_root, "sourceApplication", "").lower()
     return source_app.startswith("revit")
+
+
+def _validate_next_gen(model_root: Any) -> bool:
+    """Validate that the model was sent using the v3 connector"""
+    if not getattr(model_root, "version", None) == 3:
+        return False
+    return True
 
 
 def _process_automation_results(
